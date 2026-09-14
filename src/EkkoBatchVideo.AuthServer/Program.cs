@@ -50,14 +50,15 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
 app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
+    var sent = false;
     if (users.TryGetValue(email, out _)) {
         var token = NewToken(); resetTokens[token] = new ResetToken(email, DateTimeOffset.UtcNow.AddMinutes(30));
         var key = Environment.GetEnvironmentVariable("RESEND_API_KEY");
         var from = Environment.GetEnvironmentVariable("MAIL_FROM") ?? "onboarding@resend.dev";
         var publicUrl = Environment.GetEnvironmentVariable("PUBLIC_URL") ?? "https://vps-x317.onrender.com";
-        if (!string.IsNullOrWhiteSpace(key)) { using var client = new HttpClient(); client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key); await client.PostAsJsonAsync("https://api.resend.com/emails", new { from, to = new[] { email }, subject = "Đặt lại mật khẩu Ekko Tools", html = $"<p>Bấm vào liên kết để đặt lại mật khẩu (có hiệu lực 30 phút):</p><p><a href=\"{publicUrl}/reset.html?token={token}\">Đặt lại mật khẩu</a></p>" }); }
+        if (!string.IsNullOrWhiteSpace(key)) { using var client = new HttpClient(); client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key); var response = await client.PostAsJsonAsync("https://api.resend.com/emails", new { from, to = new[] { email }, subject = "Đặt lại mật khẩu Ekko Tools", html = $"<p>Bấm vào liên kết để đặt lại mật khẩu (có hiệu lực 30 phút):</p><p><a href=\"{publicUrl}/reset.html?token={token}\">Đặt lại mật khẩu</a></p>" }); sent = response.IsSuccessStatusCode; }
     }
-    return Results.Ok(new { message = "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi." });
+    return Results.Ok(new { message = sent ? "Đã gửi liên kết đặt lại mật khẩu." : "Chưa cấu hình email; hãy liên hệ quản trị viên để đặt mật khẩu tạm thời.", emailSent = sent });
 });
 app.MapPost("/api/auth/reset-password", (ResetRequest request) => {
     if (!resetTokens.TryRemove(request.Token, out var reset) || reset.ExpiresAt <= DateTimeOffset.UtcNow || !users.TryGetValue(reset.Email, out var user) || request.Password.Length < 8) return Results.BadRequest(new { message = "Liên kết không hợp lệ hoặc đã hết hạn." });
@@ -99,6 +100,12 @@ app.MapPost("/api/admin/users/{email}/revoke", (string email, HttpRequest http) 
     foreach (var pair in tokens.Where(p => p.Value.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))) tokens.TryRemove(pair.Key, out _);
     return Results.Ok(new { user.Email, user.ExpiresAt, active = false });
 });
+app.MapPost("/api/admin/users/{email}/password", (string email, PasswordRequest request, HttpRequest http) => {
+    if (!IsAdmin(http)) return Results.Unauthorized();
+    if (request.Password.Length < 8 || !users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.BadRequest(new { message = "Tài khoản không tồn tại hoặc mật khẩu quá ngắn." });
+    user.PasswordHash = Hash(request.Password); Save();
+    return Results.Ok(new { message = "Đã đặt lại mật khẩu." });
+});
 app.Run();
 
 IResult Login(string email, string password) {
@@ -111,6 +118,7 @@ record LoginRequest(string Email, string Password);
 record CheckRequest(string? Token);
 record ForgotRequest(string Email);
 record ResetRequest(string Token, string Password);
+record PasswordRequest(string Password);
 record ExpiryRequest(int Days = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt);
 record ResetToken(string Email, DateTimeOffset ExpiresAt);
