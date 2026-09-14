@@ -48,6 +48,10 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
     return Login(email, request.Password);
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
+app.MapPost("/api/auth/change-password", (ChangePasswordRequest request) => {
+    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user) || user.PasswordHash != Hash(request.CurrentPassword) || request.NewPassword.Length < 8) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng hoặc mật khẩu mới quá ngắn." });
+    user.PasswordHash = Hash(request.NewPassword); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
+});
 app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
     var sent = false;
@@ -115,6 +119,7 @@ IResult Login(string email, string password) {
 }
 record RegisterRequest(string Email, string Password);
 record LoginRequest(string Email, string Password);
+record ChangePasswordRequest(string? Token, string CurrentPassword, string NewPassword);
 record CheckRequest(string? Token);
 record ForgotRequest(string Email);
 record ResetRequest(string Token, string Password);

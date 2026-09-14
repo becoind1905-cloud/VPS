@@ -1,0 +1,1935 @@
+<Window x:Class="EkkoBatchVideo.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ekko Tools v2026.08.20.83" Icon="/Assets/EkkoBatchVideo.ico"
+        Width="1500" Height="930" MinWidth="1280" MinHeight="760"
+        WindowStartupLocation="CenterScreen" AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver"
+        Background="{StaticResource BackgroundBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <Style x:Key="CompactInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Margin" Value="3,2"/>
+            <Setter Property="MinHeight" Value="28"/>
+        </Style>
+        <Style x:Key="OverallProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Background" Value="#FF0A111C"/>
+            <Setter Property="BorderBrush" Value="#FF273A52"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5" SnapsToDevicePixels="True">
+                            <Grid x:Name="PART_Track" ClipToBounds="True">
+                                <Border x:Name="PART_Indicator"
+                                        HorizontalAlignment="Left"
+                                        CornerRadius="4">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#FF25D7E8" Offset="0"/>
+                                            <GradientStop Color="#FF5A9CFF" Offset="0.48"/>
+                                            <GradientStop Color="#FF9B6CFF" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="UiOptionTemplate">
+            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+        <DataTemplate x:Key="MergeOptionTemplate">
+            <TextBlock Text="{Binding Name}" Foreground="{StaticResource CyanBrush}" TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+        <DataTemplate x:Key="ColorOptionTemplate">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="18" Height="18" CornerRadius="4" BorderBrush="#FF64748B" BorderThickness="1"
+                        Background="{Binding Hex}" Margin="0,0,8,0" />
+                <TextBlock Text="{Binding Name}" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="FontPreviewTemplate">
+            <TextBlock Text="{Binding}" FontFamily="{Binding}" FontSize="15"
+                       TextTrimming="CharacterEllipsis"/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="96" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="74" />
+        </Grid.RowDefinitions>
+
+        <!-- Thanh trên: thương hiệu, chọn video, render và dự án nằm cùng một hàng -->
+        <Grid Grid.Row="0" Margin="4,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="245"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="44" Height="44" CornerRadius="12" Background="#FF0A0F18" Margin="0,0,12,0" ClipToBounds="True">
+                    <Image Source="/Assets/EkkoBatchVideo.png" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="EKKO TOOLS" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock Text="v2026.08.20.83 • Offline • Fast Render"
+                               Foreground="{StaticResource CyanBrush}" FontSize="9.5"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="Ekko Tools v2026.08.20.83 • Offline • Fast Render" />
+                    <TextBlock Text="{Binding Settings.OutputResolutionText}"
+                               Foreground="{StaticResource MutedBrush}" FontSize="9.5"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border Grid.Column="1" Style="{StaticResource RenderCard}" Padding="10,7" Margin="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100*"/>
+                        <ColumnDefinition Width="1"/>
+                        <ColumnDefinition Width="100*"/>
+                        <ColumnDefinition Width="1"/>
+                        <ColumnDefinition Width="125*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="CHỌN VIDEO" FontWeight="SemiBold" FontSize="12" Margin="3,0,3,2"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Chọn nhiều thư mục" Command="{Binding PickFolderCommand}"
+                                    ToolTip="Có thể chọn nhiều thư mục cùng lúc; video được cộng dồn và tự bỏ file trùng"
+                                    Padding="10,6"/>
+                            <Button Content="Thêm video" Command="{Binding AddVideosCommand}" Padding="10,6"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Width="1" Background="#FF34445C" Margin="12,2"/>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="14,0">
+                        <TextBlock Text="RENDER VIDEO" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBlock Text="{Binding QueueSummary}" Foreground="{StaticResource CyanBrush}"
+                                   FontSize="10" TextWrapping="Wrap" MaxHeight="27" LineHeight="12"
+                                   ToolTip="{Binding QueueSummary}"/>
+                        <TextBlock Text="{Binding DetectedGpuText}" Foreground="{StaticResource MutedBrush}"
+                                   FontSize="9" TextTrimming="CharacterEllipsis" ToolTip="{Binding DetectedGpuText}"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="3" Width="1" Background="#FF34445C" Margin="12,2"/>
+
+                    <Grid Grid.Column="4" VerticalAlignment="Center" Margin="14,0,2,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Style="{StaticResource RenderButton}" Content="▶  RENDER"
+                                Command="{Binding RenderCommand}" Padding="14,9"/>
+                        <Button Grid.Column="1" Content="{Binding PauseButtonText}" Command="{Binding PauseResumeCommand}" Padding="8,6"/>
+                        <Button Grid.Column="2" Content="Hủy" Command="{Binding CancelCommand}" Padding="8,6"/>
+                        <CheckBox Grid.Row="1" Grid.ColumnSpan="3" Content="Xóa video gốc sau khi render thành công"
+                                  IsChecked="{Binding Settings.DeleteSourceAfterSuccess}" FontSize="10" Margin="5,1,5,0"/>
+                        <CheckBox Grid.Row="2" Grid.ColumnSpan="3"
+                                  Content="Dọn rác + xóa thư mục trống"
+                                  IsChecked="{Binding Settings.EmptyRecycleBinAfterSuccessfulRun}"
+                                  IsEnabled="{Binding Settings.DeleteSourceAfterSuccess}"
+                                  FontSize="10" Margin="5,1,5,0"
+                                  ToolTip="Chỉ chạy khi toàn bộ tác vụ thành công và tùy chọn xóa video gốc đang bật. Cây thư mục nguồn của lượt chạy sẽ bị xóa nếu hoàn toàn trống, sau đó toàn bộ dữ liệu trong Thùng rác sẽ bị xóa vĩnh viễn."/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <UniformGrid Grid.Column="2" Columns="4" Rows="1"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Margin="6,0,0,0">
+                <Button Content="Nơi lưu" Command="{Binding ChooseOutputCommand}"
+                        ToolTip="Chọn ổ đĩa và thư mục lưu video render" Padding="10,6"/>
+                <Button Content="Video xuất" Command="{Binding OpenLatestOutputCommand}"
+                        ToolTip="Mở video MP4 được xuất gần nhất" Padding="10,6"/>
+                <Button Content="Thư mục xuất" Command="{Binding OpenOutputFolderCommand}"
+                        ToolTip="{Binding Settings.OutputRoot}" Padding="10,6"/>
+                <Button Content="Đổi mật khẩu" Command="{Binding ChangePasswordCommand}" Padding="10,6"/>
+            </UniformGrid>
+        </Grid>
+
+        <!-- Cột trái: điều khiển + danh sách + chỉnh sửa. Cột phải: toàn bộ màn hình xem trước. -->
+        <Grid Grid.Row="1" Margin="0,3,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110*" MinWidth="620"/>
+                <ColumnDefinition Width="1"/>
+                <ColumnDefinition Width="90*" MinWidth="610"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="46*"/>
+                    <RowDefinition Height="54*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Danh sách được kéo lên và cao hơn -->
+                <Border Grid.Row="0" Style="{StaticResource Card}" Margin="5">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid Margin="3,0,3,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock FontWeight="SemiBold" FontSize="14">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="DANH SÁCH VIDEO - {0}">
+                                        <Binding Path="CurrentFolderName"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <Border Grid.Column="1" Background="#FF202B3D" CornerRadius="10"
+                                    Padding="9,3" MaxWidth="300">
+                                <TextBlock Text="{Binding QueueSummary}" Foreground="{StaticResource CyanBrush}"
+                                           FontSize="10" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding QueueSummary}"/>
+                            </Border>
+                        </Grid>
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}"
+                                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" RowHeight="28"
+                                  EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
+                                  ScrollViewer.IsDeferredScrollingEnabled="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Video" Binding="{Binding FileName}" Width="*" />
+                                <DataGridTextColumn Header="Dài" Binding="{Binding Media.DurationText}" Width="58" />
+                                <DataGridTextColumn Header="Kích thước" Binding="{Binding Media.ResolutionText}" Width="76" />
+                                <DataGridTextColumn Header="FPS" Binding="{Binding RenderFps, StringFormat={}{0:0.0}}" Width="43" />
+                                <DataGridTextColumn Header="Giai đoạn" Binding="{Binding ProcessingStage}" Width="96" />
+                                <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusText}" Width="76" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Grid Grid.Row="2" Margin="0,7,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <Button Content="↻ Cập nhật danh sách" Command="{Binding RefreshListCommand}"
+                                        Padding="9,5" ToolTip="Quét lại thư mục, thêm video mới, bỏ file đã mất và đọc lại thông tin video"/>
+                                <Button Content="Dừng đọc metadata"
+                                        Command="{Binding CancelMetadataAnalysisCommand}"
+                                        Padding="9,5"
+                                        Foreground="#FFFFB65C"
+                                        ToolTip="Dừng các tiến trình FFprobe và lưu phần metadata đã đọc; có thể tiếp tục bằng nút Cập nhật danh sách"/>
+                                <Button Content="Thử lại lỗi" Command="{Binding RetryCommand}" Padding="9,5"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Xóa video chọn" Command="{Binding RemoveSelectedCommand}" Padding="9,5"/>
+                                <Button Content="Xóa vĩnh viễn"
+                                        Command="{Binding PermanentlyDeleteSelectedCommand}"
+                                        Padding="9,5"
+                                        Foreground="#FFFF6868"
+                                        ToolTip="Xóa ngay file video nguồn khỏi ổ đĩa, không đưa vào Thùng rác. Ứng dụng luôn hỏi xác nhận trước."/>
+                                <Button Content="Xóa danh sách" Command="{Binding ClearCommand}" Padding="9,5"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Chỉnh sửa nằm ngay dưới danh sách -->
+                <Border Grid.Row="1" Style="{StaticResource Card}" Margin="5">
+                    <TabControl>
+                        <TabItem Header="CHỈNH VIDEO">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <GroupBox Header="Bố cục khung hình">
+                                        <StackPanel>
+                                            <TextBlock Text="Độ phân giải đầu ra" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding OutputResolutionOptions}"
+                                                      ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding Settings.OutputResolution}"
+                                                      Width="330" HorizontalAlignment="Left"
+                                                      ToolTip="Hỗ trợ dọc 9:16 (1080×1920 / 720×1280) và ngang 16:9 (1920×1080 / 1280×720)."/>
+                                            <TextBlock Text="Kiểu bố cục" Style="{StaticResource FieldLabel}" Margin="3,6,3,0"/>
+                                            <ComboBox ItemsSource="{Binding LayoutOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                      SelectedValuePath="Value" SelectedValue="{Binding Settings.Layout}"
+                                                      Width="330" HorizontalAlignment="Left"/>
+                                            <StackPanel Visibility="{Binding Settings.IsCustomLayout, Converter={StaticResource BoolToVisibility}}"
+                                                        Margin="0,5,0,0">
+                                                <Border BorderBrush="{StaticResource CyanBrush}" BorderThickness="1" CornerRadius="6"
+                                                        Background="#1517C6D0" Padding="8,6">
+                                                    <StackPanel>
+                                                        <TextBlock Text="✂ CROP BẰNG CHUỘT" Foreground="{StaticResource CyanBrush}"
+                                                                   FontWeight="Bold" FontSize="11"/>
+                                                        <TextBlock Text="{Binding MouseCropSummary}" Foreground="{StaticResource CyanBrush}"
+                                                                   FontSize="10" Margin="0,2,0,4"/>
+                                                        <WrapPanel>
+                                                            <Button Content="{Binding MouseCropButtonText}"
+                                                                    Command="{Binding ToggleMouseCropEditCommand}"
+                                                                    Foreground="{StaticResource CyanBrush}"
+                                                                    ToolTip="Bật crop rồi kéo nhiều lần quanh vùng muốn giữ; bấm Xong crop để xem kết quả"
+                                                                    Padding="9,5" Margin="0,0,4,4"/>
+                                                            <Button Content="✨ Tự chọn crop" Command="{Binding AutoMouseCropCommand}"
+                                                                    Foreground="{StaticResource CyanBrush}"
+                                                                    ToolTip="Tự chọn vùng crop: ưu tiên khuôn mặt nếu dò được, nếu không lấy vùng giữa"
+                                                                    Padding="9,5" Margin="0,0,4,4"/>
+                                                            <Button Content="Bỏ crop" Command="{Binding ResetMouseCropCommand}"
+                                                                    Foreground="{StaticResource CyanBrush}"
+                                                                    ToolTip="Bỏ vùng crop và trở về toàn khung"
+                                                                    Padding="9,5" Margin="0,0,0,4"/>
+                                                        </WrapPanel>
+                                                        <TextBlock Text="Kéo khung tự do quanh vùng muốn GIỮ → app giữ NGUYÊN tỷ lệ bạn vẽ (ngang / vuông / dọc), không ép 9:16 và không kéo méo. Cách xử lý phần ngoài khung được chọn ngay ở mục Lấy vùng video bên dưới. Tiêu đề luôn tách riêng."
+                                                                   Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                                   FontSize="10" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Visibility="{Binding Settings.IsNotCustomLayout, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="Cách lấp đầy vùng video" Style="{StaticResource FieldLabel}" Margin="3,6,3,0"/>
+                                                <ComboBox ItemsSource="{Binding MainVideoFitOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.MainVideoFit}"
+                                                          Width="380" HorizontalAlignment="Left"/>
+                                            </StackPanel>
+                                            <StackPanel Visibility="{Binding Settings.IsCustomLayout, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="Lấy vùng video" Style="{StaticResource FieldLabel}" Margin="3,6,3,0"/>
+                                                <ComboBox ItemsSource="{Binding MouseCropOutsideOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.MouseCropOutside}"
+                                                          Width="380" HorizontalAlignment="Left"
+                                                          ToolTip="Làm mờ phần ngoài hoặc cắt sạch phần ngoài khung crop."/>
+                                            </StackPanel>
+
+                                            <Border Style="{StaticResource SubCard}"
+                                                    Visibility="{Binding Settings.IsFaceCropMainVideo, Converter={StaticResource BoolToVisibility}}"
+                                                    Margin="2,5,2,2">
+                                                <StackPanel>
+                                                    <TextBlock Text="✓ Tự lấy tâm crop theo khuôn mặt chính của từng video"
+                                                               FontWeight="SemiBold" Foreground="{StaticResource AccentLightBrush}"/>
+                                                    <DockPanel Margin="0,4,2,0">
+                                                        <TextBlock Text="Số thời điểm lấy mẫu" Style="{StaticResource FieldLabel}"/>
+                                                        <TextBox Width="54" HorizontalContentAlignment="Center"
+                                                                 Text="{Binding Settings.FaceDetectionSampleCount, UpdateSourceTrigger=LostFocus}"/>
+                                                    </DockPanel>
+                                                    <Grid Margin="0,3,2,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="128"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="58"/>
+                                                            <ColumnDefinition Width="24"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="Mức tập trung vào mặt" Style="{StaticResource FieldLabel}"/>
+                                                        <Slider Grid.Column="1" Minimum="100" Maximum="200" TickFrequency="5"
+                                                                Value="{Binding Settings.FaceCropZoomPercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                                        <TextBox Grid.Column="2" HorizontalContentAlignment="Center"
+                                                                 Text="{Binding Settings.FaceCropZoomPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"/>
+                                                        <TextBlock Grid.Column="3" Text="%" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding SelectedJob.FaceDetectionStatus}"
+                                                               Foreground="{StaticResource AccentLightBrush}" TextWrapping="Wrap"
+                                                               FontWeight="SemiBold" FontSize="10" Margin="0,3,2,0"/>
+                                                    <Button Content="Dò mặt và xem thử 6 giây" Command="{Binding PreviewCommand}"
+                                                            HorizontalAlignment="Left" Margin="0,4,0,1" Padding="10,5"/>
+                                                    <TextBlock Text="Mức 100% chỉ đổi tâm khi video còn phần thừa; mặc định 135% giúp thấy rõ trên video đã đúng 9:16. Tăng cao sẽ tập trung sát mặt hơn. Mỗi clip được dò riêng; không thấy mặt sẽ dùng tâm crop dự phòng bên dưới."
+                                                               Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                               FontSize="10" Margin="0,2,2,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Grid Visibility="{Binding Settings.IsStandardCropMainVideo, Converter={StaticResource BoolToVisibility}}"
+                                                  Margin="0,5,0,0">
+                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="112"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="62"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Tâm crop ngang" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="1"
+                                                        Value="{Binding Settings.CropFocusXPercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBox Grid.Column="2" Text="{Binding Settings.CropFocusXPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                         HorizontalContentAlignment="Center"/>
+                                                <TextBlock Grid.Row="1" Text="Tâm crop dọc" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="1"
+                                                        Value="{Binding Settings.CropFocusYPercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Settings.CropFocusYPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                         HorizontalContentAlignment="Center"/>
+                                            </Grid>
+                                            <TextBlock Text="Crop theo mặt: đưa mặt chính vào giữa • Crop giữa: phủ kín và cắt phần thừa • Giữ toàn bộ hình: không crop, có thể có viền • Kéo đầy: phủ kín nhưng có thể méo."
+                                                       Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="10"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Tốc độ video">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="78"/><ColumnDefinition Width="26"/></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                            <TextBlock Text="Nhập tốc độ tùy ý" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Grid.Column="1" Text="{Binding Settings.VideoSpeed, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"
+                                                     HorizontalContentAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="×" FontSize="16" HorizontalAlignment="Center"/>
+                                            <Slider Grid.Row="1" Grid.ColumnSpan="3" Minimum="0.1" Maximum="10" TickFrequency="0.05"
+                                                    IsSnapToTickEnabled="False" Value="{Binding Settings.VideoSpeed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="0,1× đến 10× • hình và tiếng luôn đồng bộ"
+                                                       Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                                        </Grid>
+                                    </GroupBox>
+
+                                    <Expander Header="HIỆU ỨNG VIDEO — rung, lệch, màu và nhiễu"
+                                              IsExpanded="False" Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                                <ToggleButton Content="Bật toàn bộ hiệu ứng video"
+                                                              Style="{StaticResource EffectMasterToggleButton}"
+                                                              IsChecked="{Binding Settings.VideoEffectsEnabled}"
+                                                              HorizontalAlignment="Left"
+                                                              Margin="4,1,4,4"/>
+                                                <WrapPanel Margin="4,0,4,4"
+                                                           IsEnabled="{Binding Settings.VideoEffectsEnabled}">
+                                                    <ToggleButton Content="Rung"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.VideoShakeEnabled}"/>
+                                                    <ToggleButton Content="Lệch"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.VideoOffsetEnabled}"/>
+                                                    <ToggleButton Content="Chỉnh màu"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.VideoColorEnabled}"/>
+                                                    <ToggleButton Content="Nhiễu"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.VideoNoiseEnabled}"/>
+                                                    <ToggleButton Content="Rung nhẹ định kỳ"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.VideoShakePeriodic}"
+                                                                  IsEnabled="{Binding Settings.AreVideoShakeControlsEnabled}"/>
+                                                </WrapPanel>
+                                                <UniformGrid Columns="4"
+                                                             Visibility="{Binding Settings.VideoShakePeriodic, Converter={StaticResource BoolToVisibility}}"
+                                                             IsEnabled="{Binding Settings.AreVideoShakeControlsEnabled}"
+                                                             Margin="4,0,4,5">
+                                                    <TextBlock Text="Mỗi (giây)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.VideoShakeIntervalSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                                    <TextBlock Text="Mỗi lần rung (giây)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.VideoShakeDurationSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                                </UniformGrid>
+                                                <Grid IsEnabled="{Binding Settings.VideoEffectsEnabled}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="105"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Text="Độ rung (px)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoShakeEnabled}"/>
+                                                    <Slider Grid.Column="1" Minimum="0" Maximum="40"
+                                                            IsEnabled="{Binding Settings.VideoShakeEnabled}"
+                                                            Value="{Binding Settings.VideoShakeStrength, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoShakeEnabled}"
+                                                             Text="{Binding Settings.VideoShakeStrength, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"/>
+                                                    <TextBlock Grid.Row="1" Text="Tốc độ rung" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoShakeEnabled}"/>
+                                                    <Slider Grid.Row="1" Grid.Column="1" Minimum="0.2" Maximum="12"
+                                                            IsEnabled="{Binding Settings.VideoShakeEnabled}"
+                                                            Value="{Binding Settings.VideoShakeSpeed, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoShakeEnabled}"
+                                                             Text="{Binding Settings.VideoShakeSpeed, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"/>
+                                                    <TextBlock Grid.Row="2" Text="Lệch ngang" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoOffsetEnabled}"/>
+                                                    <Slider Grid.Row="2" Grid.Column="1" Minimum="-100" Maximum="100"
+                                                            IsEnabled="{Binding Settings.VideoOffsetEnabled}"
+                                                            Value="{Binding Settings.VideoOffsetX, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoOffsetEnabled}"
+                                                             Text="{Binding Settings.VideoOffsetX, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"/>
+                                                    <TextBlock Grid.Row="3" Text="Lệch dọc" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoOffsetEnabled}"/>
+                                                    <Slider Grid.Row="3" Grid.Column="1" Minimum="-100" Maximum="100"
+                                                            IsEnabled="{Binding Settings.VideoOffsetEnabled}"
+                                                            Value="{Binding Settings.VideoOffsetY, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoOffsetEnabled}"
+                                                             Text="{Binding Settings.VideoOffsetY, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"/>
+                                                    <TextBlock Grid.Row="4" Text="Sáng" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoColorEnabled}"/>
+                                                    <Slider Grid.Row="4" Grid.Column="1" Minimum="-1" Maximum="1"
+                                                            IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                            Value="{Binding Settings.VideoBrightness, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                             Text="{Binding Settings.VideoBrightness, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+                                                    <TextBlock Grid.Row="5" Text="Tương phản" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoColorEnabled}"/>
+                                                    <Slider Grid.Row="5" Grid.Column="1" Minimum="0.5" Maximum="2"
+                                                            IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                            Value="{Binding Settings.VideoContrast, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                             Text="{Binding Settings.VideoContrast, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+                                                    <TextBlock Grid.Row="6" Text="Bão hòa màu" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoColorEnabled}"/>
+                                                    <Slider Grid.Row="6" Grid.Column="1" Minimum="0" Maximum="3"
+                                                            IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                            Value="{Binding Settings.VideoSaturation, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="6" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoColorEnabled}"
+                                                             Text="{Binding Settings.VideoSaturation, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+                                                    <TextBlock Grid.Row="7" Text="Nhiễu hạt" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.VideoNoiseEnabled}"/>
+                                                    <Slider Grid.Row="7" Grid.Column="1" Minimum="0" Maximum="50"
+                                                            IsEnabled="{Binding Settings.VideoNoiseEnabled}"
+                                                            Value="{Binding Settings.VideoNoiseStrength, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="7" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.VideoNoiseEnabled}"
+                                                             Text="{Binding Settings.VideoNoiseStrength, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"/>
+                                                </Grid>
+                                                <DockPanel Margin="3,4,3,0">
+                                                    <Button Content="Đặt lại hiệu ứng" Command="{Binding ResetVideoEffectsCommand}"
+                                                            DockPanel.Dock="Right" Padding="9,4"/>
+                                                    <Button Content="Rung nhẹ 5 giây/lần"
+                                                            Command="{Binding SetLightShakePresetCommand}"
+                                                            DockPanel.Dock="Right" Padding="9,4"/>
+                                                    <TextBlock Text="Tắt một chức năng vẫn giữ thông số để bật lại • lệch hình tự phóng nhẹ, không tạo viền đen"
+                                                               Foreground="{StaticResource MutedBrush}" FontSize="10"
+                                                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                                <TextBlock Text="Lệch: số âm = trái/lên • số dương = phải/xuống. Rung định kỳ tính lại từ đầu mỗi video hoặc mỗi đoạn ghép."
+                                                           Foreground="{StaticResource CyanBrush}" FontSize="10"
+                                                           TextWrapping="Wrap" Margin="3,2,3,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <Expander Header="ÂM THANH SÁNG TẠO — cao độ, EQ và vang nhẹ"
+                                              IsExpanded="False" Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                                <ToggleButton Content="Bật hiệu ứng âm thanh"
+                                                              Style="{StaticResource EffectMasterToggleButton}"
+                                                              IsChecked="{Binding Settings.AudioEffectsEnabled}"
+                                                              HorizontalAlignment="Left"
+                                                              Margin="4,1,4,4"/>
+                                                <WrapPanel Margin="4,0,4,4"
+                                                           IsEnabled="{Binding Settings.AudioEffectsEnabled}">
+                                                    <ToggleButton Content="Âm lượng"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioVolumeEnabled}"/>
+                                                    <ToggleButton Content="Cao độ"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioPitchEnabled}"/>
+                                                    <ToggleButton Content="Bass / treble"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioEqEnabled}"/>
+                                                    <ToggleButton Content="Vang nhẹ"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioEchoEnabled}"/>
+                                                    <ToggleButton Content="Khử ồn"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioNoiseReductionEnabled}"/>
+                                                    <ToggleButton Content="Nén giọng"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioCompressorEnabled}"/>
+                                                    <ToggleButton Content="Chuẩn hóa âm"
+                                                                  Style="{StaticResource EffectToggleButton}"
+                                                                  IsChecked="{Binding Settings.AudioNormalizeEnabled}"/>
+                                                </WrapPanel>
+                                                <Grid IsEnabled="{Binding Settings.AudioEffectsEnabled}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="118"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="68"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Text="Âm lượng (×)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioVolumeEnabled}"/>
+                                                    <Slider Grid.Column="1" Minimum="0" Maximum="2"
+                                                            IsEnabled="{Binding Settings.AudioVolumeEnabled}"
+                                                            Value="{Binding Settings.AudioVolume, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioVolumeEnabled}"
+                                                             Text="{Binding Settings.AudioVolume, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+
+                                                    <TextBlock Grid.Row="1" Text="Cao độ (nửa cung)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioPitchEnabled}"/>
+                                                    <Slider Grid.Row="1" Grid.Column="1" Minimum="-4" Maximum="4"
+                                                            IsEnabled="{Binding Settings.AudioPitchEnabled}"
+                                                            Value="{Binding Settings.AudioPitchSemitones, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioPitchEnabled}"
+                                                             Text="{Binding Settings.AudioPitchSemitones, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+
+                                                    <TextBlock Grid.Row="2" Text="Bass (dB)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioEqEnabled}"/>
+                                                    <Slider Grid.Row="2" Grid.Column="1" Minimum="-10" Maximum="10"
+                                                            IsEnabled="{Binding Settings.AudioEqEnabled}"
+                                                            Value="{Binding Settings.AudioBassGain, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioEqEnabled}"
+                                                             Text="{Binding Settings.AudioBassGain, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.0}}"/>
+
+                                                    <TextBlock Grid.Row="3" Text="Treble (dB)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioEqEnabled}"/>
+                                                    <Slider Grid.Row="3" Grid.Column="1" Minimum="-10" Maximum="10"
+                                                            IsEnabled="{Binding Settings.AudioEqEnabled}"
+                                                            Value="{Binding Settings.AudioTrebleGain, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioEqEnabled}"
+                                                             Text="{Binding Settings.AudioTrebleGain, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.0}}"/>
+
+                                                    <TextBlock Grid.Row="4" Text="Trễ vang (ms)" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioEchoEnabled}"/>
+                                                    <Slider Grid.Row="4" Grid.Column="1" Minimum="20" Maximum="300"
+                                                            IsEnabled="{Binding Settings.AudioEchoEnabled}"
+                                                            Value="{Binding Settings.AudioEchoDelayMs, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="4" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioEchoEnabled}"
+                                                             Text="{Binding Settings.AudioEchoDelayMs, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"/>
+
+                                                    <TextBlock Grid.Row="5" Text="Độ vang" Style="{StaticResource FieldLabel}"
+                                                               IsEnabled="{Binding Settings.AudioEchoEnabled}"/>
+                                                    <Slider Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="0.6"
+                                                            IsEnabled="{Binding Settings.AudioEchoEnabled}"
+                                                            Value="{Binding Settings.AudioEchoStrength, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="2" Style="{StaticResource CompactInput}"
+                                                             IsEnabled="{Binding Settings.AudioEchoEnabled}"
+                                                             Text="{Binding Settings.AudioEchoStrength, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"/>
+                                                </Grid>
+                                                <WrapPanel Margin="3,5,3,0">
+                                                    <Button Content="Giọng sáng nhẹ" Command="{Binding SetBrightVoicePresetCommand}" Padding="9,4"/>
+                                                    <Button Content="Giọng ấm nhẹ" Command="{Binding SetWarmVoicePresetCommand}" Padding="9,4"/>
+                                                    <Button Content="Đặt lại âm thanh" Command="{Binding ResetAudioEffectsCommand}" Padding="9,4"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="Cao độ được bù tốc độ để tiếng không lệch hình. Khoảng ±0,3 đến ±1 nghe tự nhiên; thay đổi lớn sẽ tạo hiệu ứng rõ."
+                                                           Foreground="{StaticResource CyanBrush}" FontSize="10"
+                                                           TextWrapping="Wrap" Margin="3,2,3,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <GroupBox Header="Nền và lật hình">
+                                        <StackPanel>
+                                            <WrapPanel>
+                                                <ToggleButton Content="Lật video chính"
+                                                              Style="{StaticResource EffectToggleButton}"
+                                                              IsChecked="{Binding Settings.FlipMainVideo}"/>
+                                                <ToggleButton Content="Lật nền"
+                                                              Style="{StaticResource EffectToggleButton}"
+                                                              IsChecked="{Binding Settings.FlipBackgroundVideo}"/>
+                                                <ToggleButton Content="Dùng ảnh thay nền mờ"
+                                                              Style="{StaticResource EffectToggleButton}"
+                                                              IsChecked="{Binding Settings.UseBackgroundImage}"/>
+                                            </WrapPanel>
+                                            <DockPanel Margin="0,2">
+                                                <DockPanel.Style>
+                                                    <Style TargetType="DockPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Settings.UseBackgroundImage}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DockPanel.Style>
+                                                <Button Content="Chọn ảnh nền…" Command="{Binding ChooseBackgroundImageCommand}"/>
+                                                <TextBlock Text="{Binding Settings.BackgroundImagePath}" Foreground="{StaticResource MutedBrush}"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Settings.BackgroundImagePath}"/>
+                                            </DockPanel>
+                                            <Grid Margin="0,3,0,0">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Settings.UseBackgroundImage}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="12"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Độ mờ vùng nền" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Column="1" Grid.ColumnSpan="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                                        Value="{Binding Settings.BlurRadius, UpdateSourceTrigger=PropertyChanged}"
+                                                        ToolTip="0 = nền nét như video • từ 1 trở lên mới làm mờ riêng vùng nền"/>
+                                                <TextBox Grid.Column="4" Width="64" HorizontalAlignment="Left" Style="{StaticResource CompactInput}"
+                                                         Text="{Binding Settings.BlurRadius, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                         HorizontalContentAlignment="Center" ToolTip="0 = nền nét • 1–100 = làm mờ riêng vùng nền"/>
+                                                <TextBlock Grid.Row="1" Text="Phóng nền" Style="{StaticResource FieldLabel}"/>
+                                                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal">
+                                                    <TextBox Width="58" Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.BlurZoom, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"
+                                                             HorizontalContentAlignment="Center" ToolTip="Tự nhập từ 1 đến 3"/>
+                                                    <Button Content="×2" Command="{Binding SetBlurZoomCommand}" CommandParameter="2"
+                                                            Padding="7,3" Margin="2" ToolTip="Phóng nền mờ 2 lần"/>
+                                                    <Button Content="×3" Command="{Binding SetBlurZoomCommand}" CommandParameter="3"
+                                                            Padding="7,3" Margin="2" ToolTip="Phóng nền mờ 3 lần"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="2" Text="Tối ↔ Sáng" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Minimum="-0.95" Maximum="0.95" TickFrequency="0.05"
+                                                        Value="{Binding Settings.BlurBrightness, UpdateSourceTrigger=PropertyChanged}"
+                                                        ToolTip="Kéo trái để tối • 0 giữ nguyên • kéo phải để sáng"/>
+                                                <TextBox Grid.Row="2" Grid.Column="4" Width="64" HorizontalAlignment="Left" Style="{StaticResource CompactInput}"
+                                                         Text="{Binding Settings.BlurBrightness, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"
+                                                         HorizontalContentAlignment="Center" ToolTip="-0,95 tối nhất • 0 tự nhiên • +0,95 sáng nhất"/>
+                                                <TextBlock Grid.Row="3" Grid.ColumnSpan="5"
+                                                           Text="Mờ 0: các vùng trên/dưới đều nét. Tăng độ mờ: chỉ vùng nền của bố cục bị mờ; vùng video chính luôn giữ nét. Bấm Xem thử 6 giây sau khi đổi."
+                                                           Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                           FontSize="10" Margin="3,4,3,0"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Logo / watermark">
+                                        <StackPanel>
+                                            <CheckBox Content="Chèn watermark vào video"
+                                                      IsChecked="{Binding Settings.WatermarkEnabled}"
+                                                      FontWeight="SemiBold"/>
+                                            <DockPanel Margin="0,3">
+                                                <Button Content="Chọn ảnh logo…"
+                                                        Command="{Binding ChooseWatermarkImageCommand}"/>
+                                                <Button Content="Bỏ logo"
+                                                        Command="{Binding ClearWatermarkImageCommand}"/>
+                                                <TextBlock Text="{Binding Settings.WatermarkPath}"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Settings.WatermarkPath}"
+                                                           Margin="6,0"/>
+                                            </DockPanel>
+                                            <UniformGrid Columns="2"
+                                                         IsEnabled="{Binding Settings.WatermarkEnabled}">
+                                                <TextBlock Text="Vị trí" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding WatermarkPositionOptions}"
+                                                          ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Settings.WatermarkPosition}"/>
+                                                <TextBlock Text="Chiều rộng (% khung)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.WatermarkWidthPercent}"/>
+                                                <TextBlock Text="Độ rõ (0,05–1)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.WatermarkOpacity}"/>
+                                                <TextBlock Text="Cách mép (px)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.WatermarkMargin}"/>
+                                                <TextBlock Text="Vị trí X tùy chỉnh (%)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.WatermarkXPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"/>
+                                                <TextBlock Text="Vị trí Y tùy chỉnh (%)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.WatermarkYPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"/>
+                                            </UniformGrid>
+                                            <CheckBox Content="Tự xóa nền caro/trắng nếu logo chưa có alpha thật"
+                                                      IsChecked="{Binding Settings.WatermarkAutoRemoveBackground}"
+                                                      IsEnabled="{Binding Settings.WatermarkEnabled}"
+                                                      Margin="4,5,4,2"/>
+                                            <DockPanel IsEnabled="{Binding Settings.WatermarkEnabled}" Margin="4,1">
+                                                <TextBlock Text="Độ nhạy xóa nền" Style="{StaticResource FieldLabel}" Width="120"/>
+                                                <Slider Minimum="8" Maximum="96" TickFrequency="2" Width="180"
+                                                        IsSnapToTickEnabled="True"
+                                                        Value="{Binding Settings.WatermarkBackgroundTolerance, UpdateSourceTrigger=PropertyChanged, Delay=350}"/>
+                                                <TextBlock Text="{Binding Settings.WatermarkBackgroundTolerance}"
+                                                           Width="38" TextAlignment="Right" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <Button Content="{Binding WatermarkPositionButtonText}"
+                                                    Command="{Binding ToggleWatermarkPositionEditCommand}"
+                                                    IsEnabled="{Binding Settings.WatermarkEnabled}"
+                                                    ToolTip="Tạo preview trước, sau đó kéo logo trực tiếp bằng chuột"/>
+                                            <TextBlock Text="PNG có alpha được giữ nguyên. Ảnh có ô caro thật sẽ được tạo bản PNG trong suốt mà không sửa file gốc. Watermark áp dụng cho render thường, preview và video ghép."
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Ảnh mở đầu / kết thúc">
+                                        <StackPanel>
+                                            <CheckBox Content="Thêm ảnh mở đầu"
+                                                      IsChecked="{Binding Settings.IntroEnabled}"
+                                                      FontWeight="SemiBold"/>
+                                            <DockPanel IsEnabled="{Binding Settings.IntroEnabled}">
+                                                <Button Content="Chọn ảnh mở đầu…"
+                                                        Command="{Binding ChooseIntroImageCommand}"/>
+                                                <TextBox Width="64"
+                                                         Text="{Binding Settings.IntroDurationSeconds}"
+                                                         ToolTip="Số giây hiển thị"/>
+                                                <TextBlock Text="{Binding Settings.IntroImagePath}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Settings.IntroImagePath}"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           Margin="6,0"/>
+                                            </DockPanel>
+                                            <CheckBox Content="Thêm ảnh kết thúc"
+                                                      IsChecked="{Binding Settings.OutroEnabled}"
+                                                      FontWeight="SemiBold"
+                                                      Margin="4,6,4,2"/>
+                                            <DockPanel IsEnabled="{Binding Settings.OutroEnabled}">
+                                                <Button Content="Chọn ảnh kết thúc…"
+                                                        Command="{Binding ChooseOutroImageCommand}"/>
+                                                <TextBox Width="64"
+                                                         Text="{Binding Settings.OutroDurationSeconds}"
+                                                         ToolTip="Số giây hiển thị"/>
+                                                <TextBlock Text="{Binding Settings.OutroImagePath}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Settings.OutroImagePath}"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           Margin="6,0"/>
+                                            </DockPanel>
+                                            <TextBlock Text="Ảnh được căn giữa trên khung dọc đã chọn, có nền đen và âm thanh im lặng. Áp dụng cho render thường và video ghép; preview 6 giây chỉ xem nội dung chính."
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="CHỮ &amp; KHUNG">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <Border Style="{StaticResource SubCard}">
+                                        <StackPanel>
+                                            <CheckBox Content="Hiện chữ tiêu đề trên video"
+                                                      IsChecked="{Binding Settings.TitleTextEnabled}"
+                                                      FontWeight="SemiBold"/>
+                                            <CheckBox Content="Hiện chữ Part trên video"
+                                                      IsChecked="{Binding Settings.PartTextEnabled}"
+                                                      IsEnabled="{Binding Settings.SplitEnabled}"
+                                                      FontWeight="SemiBold" Margin="0,4,0,0"
+                                                      ToolTip="Chỉ áp dụng khi đã bật tách video"/>
+                                            <CheckBox Content="Đặt Part ở trên tiêu đề"
+                                                      IsChecked="{Binding Settings.PartTextAboveTitle}"
+                                                      IsEnabled="{Binding Settings.SplitEnabled}"
+                                                      Margin="24,4,0,0"
+                                                      ToolTip="Bật để có kiểu Part 2 nằm trên tiêu đề như video mẫu"/>
+                                            <TextBlock Text="Bật mục Part để thêm Part 1, Part 2... Khi tắt, video chỉ hiện tiêu đề. Tùy chọn này chỉ áp dụng khi tách video."
+                                                       Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                                                       FontSize="10" Margin="24,1,4,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <GroupBox Header="Làm sạch chữ trên hình">
+                                        <StackPanel>
+                                            <WrapPanel>
+                                                <CheckBox Content="Xóa số ở đầu" IsChecked="{Binding Settings.RemoveLeadingNumbers}"/>
+                                                <CheckBox Content="Xóa dãy số ID dài khỏi tiêu đề và tên file xuất" IsChecked="{Binding Settings.RemoveNumericIds}"/>
+                                                <CheckBox Content="Xóa hashtag khỏi chữ" IsChecked="{Binding Settings.RemoveHashtags}"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="Tên file xuất vẫn giữ hashtag và luôn bỏ ký tự @."
+                                                       Foreground="{StaticResource CyanBrush}" FontSize="10"/>
+                                            <TextBlock Text="Chỉ xóa chuỗi từ 8 số liên tiếp như ID TikTok; năm 2026, số ngắn và Part1, Part2 vẫn được giữ."
+                                                       Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Từ cần xóa và từ được giữ lại">
+                                        <StackPanel>
+                                            <TextBlock Text="Từ cần xóa (ngăn cách bằng ; hoặc xuống dòng)" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Text="{Binding Settings.Blacklist}" AcceptsReturn="True" Height="45"/>
+                                            <TextBlock Text="Từ luôn được giữ lại" Style="{StaticResource FieldLabel}" Margin="3,5,3,0"/>
+                                            <TextBox Text="{Binding Settings.Whitelist}" AcceptsReturn="True" Height="40"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Kiểu chữ">
+                                        <UniformGrid Columns="2">
+                                            <TextBlock Text="Phông chữ" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding FontOptions}" SelectedItem="{Binding Settings.FontFamily}"
+                                                      ItemTemplate="{StaticResource FontPreviewTemplate}" IsTextSearchEnabled="True"/>
+                                            <TextBlock Text="Độ đậm" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding FontWeightOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                      SelectedValuePath="Value" SelectedValue="{Binding Settings.FontWeightName}"/>
+                                            <TextBlock Text="Cỡ chữ" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.FontSize}"/>
+                                            <TextBlock Text="Cỡ nhỏ nhất" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.MinimumFontSize}"/>
+                                            <TextBlock Text="Chiều rộng tối đa" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.TitleMaxWidth}"/>
+                                            <TextBlock Text="Số dòng tối đa" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.TitleMaxLines}"/>
+                                            <TextBlock Text="Màu chữ" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding ColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                      SelectedValuePath="Hex" SelectedValue="{Binding Settings.TextColor}"/>
+                                            <TextBlock Text="Màu viền chữ" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding ColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                      SelectedValuePath="Hex" SelectedValue="{Binding Settings.StrokeColor}"/>
+                                            <TextBlock Text="Độ dày viền chữ" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.StrokeWidth}"/>
+                                            <TextBlock Text="Bóng chữ" Style="{StaticResource FieldLabel}"/><CheckBox Content="Bật bóng" IsChecked="{Binding Settings.ShadowEnabled}"/>
+                                            <TextBlock Text="Độ đậm bóng (0–1)" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.ShadowOpacity}"/>
+                                            <TextBlock Text="Cỡ chữ Part" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.PartScale}"/>
+                                        </UniformGrid>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Vị trí tiêu đề — chỉnh bằng tay">
+                                        <StackPanel>
+                                            <Grid Margin="0,2">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition/><ColumnDefinition Width="74"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Ngang" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Column="1" Minimum="-500" Maximum="500" TickFrequency="10"
+                                                        Value="{Binding Settings.TitleHorizontalOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBox Grid.Column="2" Text="{Binding Settings.TitleHorizontalOffset, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                         HorizontalContentAlignment="Center"/>
+                                            </Grid>
+                                            <Grid Margin="0,2">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition/><ColumnDefinition Width="74"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Dọc" Style="{StaticResource FieldLabel}"/>
+                                                <Slider Grid.Column="1" Minimum="0" Maximum="1850" TickFrequency="10"
+                                                        Value="{Binding Settings.TitleTop, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBox Grid.Column="2" Text="{Binding Settings.TitleTop, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                         HorizontalContentAlignment="Center"/>
+                                            </Grid>
+                                            <TextBlock Text="Bố cục 35–30–35 mặc định đặt chữ tại 1340 px. Có thể kéo trực tiếp chữ trên preview; hai thanh này dùng để tinh chỉnh từng pixel."
+                                                       Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap" FontSize="10" Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Khung nền phía sau chữ">
+                                        <StackPanel>
+                                            <CheckBox Content="Bật khung chữ" IsChecked="{Binding Settings.TitleFrameEnabled}" FontWeight="SemiBold"/>
+                                            <UniformGrid Columns="2" IsEnabled="{Binding Settings.TitleFrameEnabled}">
+                                                <TextBlock Text="Màu nền khung" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding FrameColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                          SelectedValuePath="Hex" SelectedValue="{Binding Settings.TitleFrameColor}"/>
+                                                <TextBlock Text="Độ đậm màu khung (%)" Style="{StaticResource FieldLabel}"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="66"/></Grid.ColumnDefinitions>
+                                                    <Slider Minimum="0" Maximum="100" TickFrequency="1"
+                                                            Value="{Binding Settings.TitleFrameOpacityPercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBox Grid.Column="1" Text="{Binding Settings.TitleFrameOpacityPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                                                             HorizontalContentAlignment="Center"/>
+                                                </Grid>
+                                                <TextBlock Text="Màu viền khung" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding ColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                          SelectedValuePath="Hex" SelectedValue="{Binding Settings.TitleFrameBorderColor}"/>
+                                                <TextBlock Text="Độ dày viền" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.TitleFrameBorderWidth}"/>
+                                                <TextBlock Text="Khoảng đệm" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.TitleFramePadding}"/>
+                                                <TextBlock Text="Bo góc" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.TitleFrameCornerRadius}"/>
+                                            </UniformGrid>
+                                            <TextBlock Text="Khung, tiêu đề và Part được ghép chung trong một ảnh PNG."
+                                                       Foreground="{StaticResource CyanBrush}" FontSize="10"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="PHỤ ĐỀ AI">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <Border Style="{StaticResource SubCard}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                            <Border Width="26" Height="26" CornerRadius="13" Background="#FF087F8C">
+                                                <TextBlock Text="AI" HorizontalAlignment="Center" FontWeight="Bold" FontSize="9"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <CheckBox Content="Bật phụ đề tự động bằng giọng nói"
+                                                          IsChecked="{Binding Settings.AutoSubtitlesEnabled}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding SubtitleModeSummary}"
+                                                           Foreground="{StaticResource CyanBrush}"
+                                                           TextWrapping="Wrap" FontSize="10" Margin="0,2,0,0"/>
+                                                <TextBlock Text="Whisper nhận giọng và Argos dịch hoàn toàn trong máy; không cần API key và không gửi dữ liệu lên mạng."
+                                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="10"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <GroupBox Header="Phụ đề SRT thủ công cho video đang chọn">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SelectedJob.ManualSubtitleFileName}"
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding SelectedJob.ManualSubtitlePath}"
+                                                       Margin="4,2,4,5"/>
+                                            <WrapPanel>
+                                                <Button Content="Chọn file SRT"
+                                                        Command="{Binding ChooseManualSubtitleCommand}"/>
+                                                <Button Content="Mở để sửa"
+                                                        Command="{Binding EditManualSubtitleCommand}"/>
+                                                <Button Content="Bỏ SRT"
+                                                        Command="{Binding ClearManualSubtitleCommand}"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="SRT thủ công được ưu tiên hơn phụ đề AI, tự cắt và dời thời gian theo từng Part/đoạn ghép. File gốc không bị sửa."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <Expander Header="Bộ AI offline và cài đặt" IsExpanded="False" Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SubtitleAiStatusText}" Foreground="{StaticResource CyanBrush}"
+                                                           TextWrapping="Wrap" Margin="4,2,4,6"/>
+                                                <WrapPanel>
+                                                    <Button Style="{StaticResource PrimaryButton}" Content="Cài / sửa bộ AI"
+                                                            Command="{Binding InstallSubtitleAiCommand}"
+                                                            ToolTip="Chỉ cần bấm khi trạng thái báo thiếu hoặc bộ AI gặp lỗi"/>
+                                                    <Button Content="Kiểm tra lại" Command="{Binding RefreshSubtitleAiCommand}"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="Nếu trạng thái báo đã sẵn sàng thì không cần cài lại; nhận giọng, dịch và render đều chạy offline."
+                                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="10" Margin="4,3"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <GroupBox Header="Ngôn ngữ và cách xuất" IsEnabled="{Binding Settings.AutoSubtitlesEnabled}">
+                                        <StackPanel>
+                                            <UniformGrid Columns="2">
+                                                <TextBlock Text="Tiếng nói gốc trong video" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding SubtitleSourceOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.SubtitleSourceLanguage}"/>
+                                                <TextBlock Text="Dịch phụ đề sang" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding SubtitleTargetOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.SubtitleTargetLanguage}"/>
+                                                <TextBlock Text="Cách xuất phụ đề" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding SubtitleOutputOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.SubtitleOutput}"/>
+                                            </UniformGrid>
+                                            <TextBlock Text="Chế độ 2 dòng: để nguồn là Tự nhận diện và đích là Tự chọn Việt ↔ Anh; app sẽ nhận giọng rồi tự chọn ngôn ngữ còn lại."
+                                                       Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                       FontSize="10" Margin="4,4,4,0"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <Expander Header="LÀM MỜ SUB CÓ SẴN — chèn bản dịch mới"
+                                              IsExpanded="False" Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                                <CheckBox Content="Bật làm mờ phụ đề đã dính trong video"
+                                                          IsChecked="{Binding Settings.ExistingSubtitleBlurEnabled}"
+                                                          FontWeight="SemiBold" Margin="4,1,4,4"/>
+                                                <CheckBox Content="Tự nhận diện vùng chữ/sub cũ theo từng video"
+                                                          IsChecked="{Binding Settings.AutoDetectExistingSubtitleRegion}"
+                                                          IsEnabled="{Binding Settings.ExistingSubtitleBlurEnabled}"
+                                                          FontWeight="SemiBold" Margin="4,1,4,3"/>
+                                                <DockPanel Margin="3,1,3,4"
+                                                           IsEnabled="{Binding Settings.ExistingSubtitleBlurEnabled}">
+                                                    <Button Content="Tự dò lại video đang chọn"
+                                                            Command="{Binding DetectExistingSubtitleBlurCommand}"
+                                                            DockPanel.Dock="Right" Padding="9,4"/>
+                                                    <TextBlock Text="{Binding ExistingSubtitleDetectionStatusText}"
+                                                               Foreground="{StaticResource CyanBrush}"
+                                                               TextWrapping="Wrap" FontSize="10"
+                                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                </DockPanel>
+                                                <Expander Header="Thiết lập nhận diện nâng cao"
+                                                          IsEnabled="{Binding Settings.ExistingSubtitleBlurEnabled}"
+                                                          Margin="3,1,3,4">
+                                                    <UniformGrid Columns="2" Margin="0,3,0,0">
+                                                        <TextBlock Text="Số khung lấy mẫu (3–8)" Style="{StaticResource FieldLabel}"/>
+                                                        <TextBox Style="{StaticResource CompactInput}"
+                                                                 Text="{Binding Settings.ExistingSubtitleDetectionSampleCount, UpdateSourceTrigger=LostFocus}"/>
+                                                        <TextBlock Text="Tìm trong phần dưới (%)" Style="{StaticResource FieldLabel}"/>
+                                                        <TextBox Style="{StaticResource CompactInput}"
+                                                                 Text="{Binding Settings.ExistingSubtitleDetectionSearchBottomPercent, UpdateSourceTrigger=LostFocus}"/>
+                                                        <TextBlock Text="Độ nhạy (10–100)" Style="{StaticResource FieldLabel}"/>
+                                                        <TextBox Style="{StaticResource CompactInput}"
+                                                                 Text="{Binding Settings.ExistingSubtitleDetectionSensitivity, UpdateSourceTrigger=LostFocus}"/>
+                                                        <TextBlock Text="Lề phủ thêm (px)" Style="{StaticResource FieldLabel}"/>
+                                                        <TextBox Style="{StaticResource CompactInput}"
+                                                                 Text="{Binding Settings.ExistingSubtitleDetectionMargin, UpdateSourceTrigger=LostFocus}"/>
+                                                    </UniformGrid>
+                                                </Expander>
+                                                <TextBlock Text="Vùng thủ công dự phòng (tự dùng nếu không nhận ra chữ):"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           FontWeight="SemiBold" FontSize="10"
+                                                           Margin="4,2,4,1"/>
+                                                <UniformGrid Columns="2"
+                                                             IsEnabled="{Binding Settings.ExistingSubtitleBlurEnabled}">
+                                                    <TextBlock Text="Vị trí X từ trái (px)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.ExistingSubtitleBlurX, UpdateSourceTrigger=LostFocus}"/>
+                                                    <TextBlock Text="Vị trí Y từ trên (px)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.ExistingSubtitleBlurY, UpdateSourceTrigger=LostFocus}"/>
+                                                    <TextBlock Text="Chiều rộng vùng (px)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.ExistingSubtitleBlurWidth, UpdateSourceTrigger=LostFocus}"/>
+                                                    <TextBlock Text="Chiều cao vùng (px)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.ExistingSubtitleBlurHeight, UpdateSourceTrigger=LostFocus}"/>
+                                                    <TextBlock Text="Độ mờ (1–80)" Style="{StaticResource FieldLabel}"/>
+                                                    <TextBox Style="{StaticResource CompactInput}"
+                                                             Text="{Binding Settings.ExistingSubtitleBlurStrength, UpdateSourceTrigger=LostFocus}"/>
+                                                </UniformGrid>
+                                                <DockPanel Margin="3,4,3,0">
+                                                    <Button Content="Đặt nhanh sub phía dưới"
+                                                            Command="{Binding SetBottomSubtitleBlurPresetCommand}"
+                                                            DockPanel.Dock="Right" Padding="9,4"/>
+                                                    <TextBlock Text="Tọa độ chỉnh theo khung thiết kế dọc 9:16 hoặc ngang 16:9 • bản HD tự thu theo tỷ lệ • khung cyan không xuất vào video"
+                                                               Foreground="{StaticResource CyanBrush}" FontSize="10"
+                                                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                                <TextBlock Text="Thứ tự xử lý: làm mờ sub cũ trước, sau đó mới chèn tiêu đề và phụ đề AI/bản dịch mới để chữ mới luôn rõ."
+                                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                                                           FontSize="10" Margin="3,3,3,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <Expander Header="Nhận giọng và làm sạch nâng cao"
+                                              IsExpanded="False"
+                                              IsEnabled="{Binding Settings.AutoSubtitlesEnabled}"
+                                              Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                            <CheckBox Content="Làm sạch emoji, hashtag, thẻ HTML và ký tự rác"
+                                                      IsChecked="{Binding Settings.SubtitleCleanSpecialCharacters}"
+                                                      FontWeight="SemiBold" Margin="4,2,4,0"/>
+                                            <CheckBox Content="Dịch theo cụm câu để tăng độ chính xác"
+                                                      IsChecked="{Binding Settings.SubtitleContextTranslation}"
+                                                      FontWeight="SemiBold" Margin="4,3,4,0"/>
+                                            <CheckBox Content="Tự loại phụ đề trùng liên tiếp"
+                                                      IsChecked="{Binding Settings.SubtitleRemoveDuplicates}"
+                                                      FontWeight="SemiBold" Margin="4,3,4,0"/>
+                                            <TextBlock Text="Giữ nguyên chữ tiếng Việt và dấu câu thông thường; áp dụng cho cả lời nhận diện và bản dịch."
+                                                       Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                                                       FontSize="10" Margin="24,1,4,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <GroupBox Header="Cách chữ phụ đề xuất hiện" IsEnabled="{Binding Settings.AutoSubtitlesEnabled}">
+                                        <StackPanel>
+                                            <UniformGrid Columns="2">
+                                                <TextBlock Text="Kiểu hiển thị" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding SubtitleDisplayOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value" SelectedValue="{Binding Settings.SubtitleDisplay}"/>
+                                            </UniformGrid>
+                                            <Grid Visibility="{Binding Settings.IsSubtitleWordGroups, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Số từ xuất hiện mỗi lần" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}"
+                                                         Text="{Binding Settings.SubtitleWordsPerCue}" HorizontalContentAlignment="Center"/>
+                                            </Grid>
+                                            <TextBlock Text="Nhập 1 để hiện từng từ: “Anh” sẽ giữ nguyên là “Anh”, không còn tách thành A–n–h. Chỉ tiếng Nhật/Trung không có khoảng trắng mới tách theo ký tự. Phụ đề song ngữ luôn giữ nguyên hai câu cùng nhau."
+                                                       Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap" FontSize="10" Margin="4,4,4,0"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <Expander Header="Bộ nhớ tạm phụ đề" IsExpanded="False" Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SubtitleCacheSizeText, StringFormat='Bộ nhớ đang dùng: {0}'}"
+                                                           Foreground="{StaticResource CyanBrush}" Margin="4,2,4,6"/>
+                                                <WrapPanel>
+                                                    <Button Content="Tính lại dung lượng" Command="{Binding RefreshSubtitleCacheCommand}"/>
+                                                    <Button Content="Xóa cache video chọn" Command="{Binding ClearSelectedSubtitleCacheCommand}"/>
+                                                    <Button Content="Xóa toàn bộ cache" Command="{Binding ClearAllSubtitleCacheCommand}"/>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </Expander>
+
+                                    <Expander Header="Kiểu chữ và vị trí phụ đề"
+                                              IsExpanded="False"
+                                              IsEnabled="{Binding Settings.AutoSubtitlesEnabled}"
+                                              Margin="2">
+                                        <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">
+                                            <UniformGrid Columns="2">
+                                                <TextBlock Text="Font chữ" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding FontOptions}" SelectedItem="{Binding Settings.SubtitleFontFamily}"
+                                                          ItemTemplate="{StaticResource FontPreviewTemplate}" IsTextSearchEnabled="True"/>
+                                                <TextBlock Text="Cỡ chữ" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.SubtitleFontSize}"/>
+                                                <TextBlock Text="Màu chữ" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding ColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                          SelectedValuePath="Hex" SelectedValue="{Binding Settings.SubtitleTextColor}"/>
+                                                <TextBlock Text="Màu viền" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding ColorOptions}" ItemTemplate="{StaticResource ColorOptionTemplate}"
+                                                          SelectedValuePath="Hex" SelectedValue="{Binding Settings.SubtitleOutlineColor}"/>
+                                                <TextBlock Text="Độ dày viền" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.SubtitleOutlineWidth}"/>
+                                                <TextBlock Text="Cách mép dưới (px)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.SubtitleBottomMargin}"/>
+                                                <TextBlock Text="Lệch ngang (px)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.SubtitleHorizontalOffset}"/>
+                                                <TextBlock Text="Ký tự tối đa mỗi dòng" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding Settings.SubtitleMaxCharacters}"/>
+                                            </UniformGrid>
+                                        </Border>
+                                    </Expander>
+
+                                    <Border Style="{StaticResource SubCard}" IsEnabled="{Binding Settings.AutoSubtitlesEnabled}">
+                                        <TextBlock Text="Phụ đề tự căn theo từng Part hoặc từng đoạn ghép. Bấm Xem thử 6 giây để kiểm tra trước."
+                                                   Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="GHÉP VIDEO">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <Border Style="{StaticResource SubCard}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                            <Border Width="26" Height="26" CornerRadius="13" Background="#FF4938A0">
+                                                <TextBlock Text="1" HorizontalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource CyanBrush}"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <CheckBox Content="Bật ghép nhiều video thành video dài"
+                                                          IsChecked="{Binding Settings.MergeVideosEnabled}"
+                                                          FontWeight="SemiBold"
+                                                          Foreground="{StaticResource CyanBrush}"/>
+                                                <TextBlock Text="Tự chuyển sang Toàn khung và tắt chia Part."
+                                                           Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <GroupBox Header="2  Chọn cách ghép đầu ra"
+                                              IsEnabled="{Binding Settings.MergeVideosEnabled}"
+                                              Foreground="{StaticResource CyanBrush}">
+                                        <StackPanel>
+                                            <RadioButton Content="Ghép theo thời gian" GroupName="MergeGroupingMode"
+                                                         IsChecked="{Binding Settings.IsMergeByDuration}"
+                                                         Margin="4,2,4,5" FontWeight="SemiBold"
+                                                         Foreground="{StaticResource CyanBrush}"/>
+                                            <StackPanel Visibility="{Binding Settings.IsMergeByDuration, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="86"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="86"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Thời lượng (giây)" Style="{StaticResource FieldLabel}" Foreground="{StaticResource CyanBrush}"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource CompactInput}"
+                                                             Foreground="{StaticResource CyanBrush}"
+                                                             Text="{Binding Settings.MergeMinSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                                    <TextBlock Grid.Column="2" Text="đến" Style="{StaticResource FieldLabel}" Foreground="{StaticResource CyanBrush}"/>
+                                                    <TextBox Grid.Column="3" Style="{StaticResource CompactInput}"
+                                                             Foreground="{StaticResource CyanBrush}"
+                                                             Text="{Binding Settings.MergeMaxSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                                </Grid>
+                                                <TextBlock Text="Ví dụ: 120 đến 240 giây tương ứng 2 đến 4 phút."
+                                                           Foreground="{StaticResource CyanBrush}" FontSize="10" Margin="4,2"/>
+                                            </StackPanel>
+
+                                            <RadioButton Content="Ghép theo số video" GroupName="MergeGroupingMode"
+                                                         IsChecked="{Binding Settings.IsMergeByVideoCount}"
+                                                         Margin="4,10,4,5" FontWeight="SemiBold"
+                                                         Foreground="{StaticResource CyanBrush}"/>
+                                            <StackPanel Visibility="{Binding Settings.IsMergeByVideoCount, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="86"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Số video ghép với nhau" Style="{StaticResource FieldLabel}" Foreground="{StaticResource CyanBrush}"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource CompactInput}"
+                                                             Foreground="{StaticResource CyanBrush}"
+                                                             CaretBrush="{StaticResource CyanBrush}"
+                                                             Text="{Binding Settings.MergeVideosPerOutput, UpdateSourceTrigger=LostFocus}"/>
+                                                </Grid>
+                                                <TextBlock Text="Nhập 2, 3, 4... để mỗi video đầu ra có đúng số clip đã chọn. Chế độ này KHÔNG dùng giới hạn thời gian Min/Max."
+                                                           Foreground="{StaticResource CyanBrush}" FontSize="10" Margin="4,2" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="3  Kế hoạch tự động"
+                                              IsEnabled="{Binding Settings.MergeVideosEnabled}"
+                                              Foreground="{StaticResource CyanBrush}">
+                                        <StackPanel>
+                                            <DockPanel Margin="4,0,4,4">
+                                                <Button Content="Phối lại kế hoạch"
+                                                        Command="{Binding RegenerateMergePlanCommand}"
+                                                        DockPanel.Dock="Right"
+                                                        Foreground="{StaticResource CyanBrush}"
+                                                        Padding="9,4"/>
+                                                <ComboBox ItemsSource="{Binding MergeOrderOptions}"
+                                                          ItemTemplate="{StaticResource MergeOptionTemplate}"
+                                                          Foreground="{StaticResource CyanBrush}"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Settings.MergeOrder}"
+                                                          MinWidth="210"/>
+                                            </DockPanel>
+                                            <Grid Margin="4,3,4,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="260"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Tiêu đề file xuất" Style="{StaticResource FieldLabel}"
+                                                           Foreground="{StaticResource CyanBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="1"
+                                                          ItemsSource="{Binding MergeTitleOptions}"
+                                                          ItemTemplate="{StaticResource MergeOptionTemplate}"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Settings.MergeTitleMode}"
+                                                          Foreground="{StaticResource CyanBrush}"/>
+                                            </Grid>
+                                            <TextBlock Text="{Binding MergePlanSummary}"
+                                                       Foreground="{StaticResource AccentLightBrush}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"
+                                                       Margin="4"/>
+                                            <TextBlock Text="Chọn Ghép ngẫu nhiên để xáo trộn clip mỗi lần phối, hoặc Ghép video ngắn trước để ưu tiên clip ngắn. Ghép theo số video và ghép theo thời gian là hai chế độ tách riêng: khi chọn số video, toàn bộ Min/Max được ẩn khỏi giao diện và không ảnh hưởng kế hoạch. Mỗi lần bấm Render app sẽ phối lại; ở chế độ thời gian, clip dài hơn mức tối đa tự render riêng vào thư mục Edit. Phần dư không đủ nhóm sẽ được bỏ qua và không bị xóa. Tên xuất lấy từ clip có tiêu đề rõ nghĩa nhất."
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,2"/>
+                                            <Expander Header="Xem thứ tự clip trong kế hoạch"
+                                                      Foreground="{StaticResource CyanBrush}"
+                                                      IsExpanded="False"
+                                                      Margin="4,4,4,0">
+                                                <TextBox Text="{Binding MergePlanDetailsText, Mode=OneWay}"
+                                                         IsReadOnly="True"
+                                                         Foreground="{StaticResource CyanBrush}"
+                                                         AcceptsReturn="True"
+                                                         TextWrapping="NoWrap"
+                                                         MaxHeight="220"
+                                                         VerticalScrollBarVisibility="Auto"
+                                                         HorizontalScrollBarVisibility="Auto"/>
+                                            </Expander>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="4  Tự xào ngẫu nhiên hàng loạt"
+                                              IsEnabled="{Binding Settings.MergeVideosEnabled}"
+                                              Foreground="{StaticResource CyanBrush}">
+                                        <StackPanel>
+                                            <CheckBox Content="Tự xào ngẫu nhiên và tạo đủ số lượng"
+                                                      IsChecked="{Binding Settings.AutoShuffleBatchEnabled}"
+                                                      Foreground="{StaticResource CyanBrush}"
+                                                      FontWeight="SemiBold"
+                                                      Margin="4,2,4,6"/>
+                                            <Grid IsEnabled="{Binding Settings.AutoShuffleBatchEnabled}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="100"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Số video đầu ra" Style="{StaticResource FieldLabel}"
+                                                           Foreground="{StaticResource CyanBrush}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}"
+                                                         Foreground="{StaticResource CyanBrush}"
+                                                         CaretBrush="{StaticResource CyanBrush}"
+                                                         Text="{Binding Settings.AutoShuffleTargetCount, UpdateSourceTrigger=LostFocus}"/>
+                                            </Grid>
+                                            <Border Margin="4,7,4,4" Padding="9,7" CornerRadius="8"
+                                                    BorderBrush="{StaticResource CyanBrush}" BorderThickness="1"
+                                                    Background="#1017BCD0"
+                                                    IsEnabled="{Binding Settings.AutoShuffleBatchEnabled}">
+                                                <StackPanel>
+                                                    <CheckBox Content="⚡ Xào siêu nhanh – nối nguyên video, không render lại"
+                                                              IsChecked="{Binding Settings.AutoShuffleStreamCopyEnabled}"
+                                                              Foreground="{StaticResource CyanBrush}" FontWeight="Bold"/>
+                                                    <TextBlock Text="Dùng FFmpeg stream copy (-c copy): chỉ xáo thứ tự + nối clip. Trước khi chạy, app tự kiểm tra codec/profile/FPS/timebase/audio và chỉ ghép các clip cùng nhóm tương thích. Timeline khóa theo thời lượng hình thật; output đã xong có marker an toàn để resume không nhận nhầm file lỗi. HDD cùng ổ nên dùng 2–3 luồng; SSD có thể tăng 4–8."
+                                                               Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                               FontSize="10" Margin="20,3,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Text="Mặc định 1650. App dùng đúng kiểu ghép theo thời gian hoặc theo số video đang chọn ở trên, tự chuyển thứ tự sang Ngẫu nhiên và cho phép tái sử dụng video nguồn giữa các đầu ra. Nếu dừng giữa chừng, lần Render sau tiếp tục đúng kế hoạch cũ và bỏ qua output đã xong. Nếu bật Xóa video gốc sau khi render thành công, nguồn chỉ được xóa khi đã đủ toàn bộ mục tiêu (ví dụ 1650/1650); dừng hoặc lỗi giữa chừng sẽ giữ nguyên nguồn."
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextWrapping="Wrap" FontSize="10" Margin="4,2"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <Border Style="{StaticResource SubCard}"
+                                            IsEnabled="{Binding Settings.MergeVideosEnabled}">
+                                        <StackPanel>
+                                            <TextBlock Text="GHÉP THƯỜNG: theo bố cục đã chọn • XÀO SIÊU NHANH: giữ nguyên video nguồn"
+                                                       Foreground="{StaticResource AccentLightBrush}"
+                                                       FontWeight="Bold"/>
+                                            <TextBlock Text="Khi bật ⚡ Xào siêu nhanh, app chỉ nối nguyên luồng, bỏ qua crop/chữ/sub/logo/hiệu ứng/đổi độ phân giải và tự tách nguồn theo nhóm stream tương thích. Khi tắt, chế độ ghép render hoạt động như bình thường."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="CẮT VIDEO">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <Border Style="{StaticResource SubCard}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                            <Border Width="26" Height="26" CornerRadius="13" Background="#FF4938A0">
+                                                <TextBlock Text="1" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <CheckBox Content="Bật chia video thành nhiều phần" IsChecked="{Binding Settings.SplitEnabled}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tắt: render nguyên video và không hiện Part."
+                                                           Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <GroupBox Header="2  Chọn cách chia" IsEnabled="{Binding Settings.SplitEnabled}"
+                                              Visibility="{Binding Settings.SplitEnabled, Converter={StaticResource BoolToVisibility}}">
+                                        <ComboBox ItemsSource="{Binding SplitOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                  SelectedValuePath="Value" SelectedValue="{Binding Settings.SplitMode}"/>
+                                    </GroupBox>
+
+                                    <GroupBox Header="3  Nhập thông số" IsEnabled="{Binding Settings.SplitEnabled}"
+                                              Visibility="{Binding Settings.SplitEnabled, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <Grid Visibility="{Binding Settings.IsPartCountSplit, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Số phần" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}" Text="{Binding Settings.PartCount}"/>
+                                            </Grid>
+                                            <Grid Visibility="{Binding Settings.IsDurationSplit, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Mỗi phần (giây)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}" Text="{Binding Settings.PartDurationSeconds}"/>
+                                            </Grid>
+                                            <Grid Visibility="{Binding Settings.IsRandomRangeSplit, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="90"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Khoảng ngẫu nhiên" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}" Text="{Binding Settings.RandomMinSeconds}"/>
+                                                <TextBlock Grid.Column="2" Text="đến" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="3" Style="{StaticResource CompactInput}" Text="{Binding Settings.RandomMaxSeconds}"/>
+                                            </Grid>
+                                            <Grid Margin="0,2,0,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Gộp phần dư dưới (giây)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}" Text="{Binding Settings.SmartRemainderSeconds}"/>
+                                            </Grid>
+                                            <Grid Margin="0,2,0,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Không cắt video dưới (giây)" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Grid.Column="1" Style="{StaticResource CompactInput}"
+                                                         Text="{Binding Settings.SkipSplitBelowSeconds}"/>
+                                            </Grid>
+                                            <TextBlock Text="Video ngắn hơn mức này được giữ nguyên để chỉnh sửa và không hiện Part. Nhập 0 để tắt ngưỡng."
+                                                       Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap"
+                                                       FontSize="10" Margin="4,2"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Tự cắt đoạn thừa ở đầu / cuối">
+                                        <StackPanel>
+                                            <Button Content="Dò im lặng và màn hình đen"
+                                                    Command="{Binding SmartTrimSelectedCommand}"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="10,5"/>
+                                            <TextBlock Text="Phân tích video đang chọn bằng FFmpeg, hiển thị số giây tìm được rồi mới hỏi xác nhận. Chỉ chỉnh điểm đầu/cuối của Part; không sửa hay xóa video nguồn."
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="4  Tạo và kiểm tra danh sách Part"
+                                              Visibility="{Binding Settings.SplitEnabled, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Style="{StaticResource PrimaryButton}" Content="Tạo lại Part" Command="{Binding RebuildPartsCommand}"/>
+                                                <Button Content="Tạo ảnh nhỏ" Command="{Binding ThumbnailsCommand}"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Mỗi video luôn bắt đầu lại từ Part 1. Có thể sửa trực tiếp điểm bắt đầu và độ dài."
+                                                       Foreground="{StaticResource CyanBrush}" TextWrapping="Wrap" FontSize="10" Margin="4,2,4,5"/>
+                                            <ListBox ItemsSource="{Binding SelectedJob.Parts}" SelectedItem="{Binding SelectedPart}" Height="230">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#FF151F2E" BorderBrush="#FF26364C" BorderThickness="1"
+                                                                CornerRadius="8" Margin="2" Padding="7">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="88"/></Grid.ColumnDefinitions>
+                                                                <Border Width="42" Height="72" Background="#FF05080D" CornerRadius="5">
+                                                                    <Image Source="{Binding ThumbnailPath}" Stretch="UniformToFill"/>
+                                                                </Border>
+                                                                <StackPanel Grid.Column="1" Margin="8,0">
+                                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding TimeRange}" Foreground="{StaticResource MutedBrush}" FontSize="9"/>
+                                                                    <ProgressBar Value="{Binding Progress, Mode=OneWay}" Margin="0,7,0,3"/>
+                                                                    <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource CyanBrush}" FontSize="9"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="2">
+                                                                    <TextBlock Text="Bắt đầu (giây)" Style="{StaticResource FieldLabel}" FontSize="9"/>
+                                                                    <TextBox Text="{Binding StartSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.###}}" Padding="5,3"/>
+                                                                    <TextBlock Text="Độ dài (giây)" Style="{StaticResource FieldLabel}" FontSize="9"/>
+                                                                    <TextBox Text="{Binding DurationSeconds, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.###}}" Padding="5,3"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="CÀI ĐẶT &amp; NHẬT KÝ">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <GroupBox Header="Preset edit và nền tảng xuất">
+                                        <StackPanel>
+                                            <UniformGrid Columns="2">
+                                                <TextBlock Text="Nền tảng" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox ItemsSource="{Binding OutputPlatformOptions}"
+                                                          ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Settings.OutputPlatform}"/>
+                                            </UniformGrid>
+                                            <Button Content="Áp dụng preset nền tảng"
+                                                    Command="{Binding ApplyPlatformPresetCommand}"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="10,4"
+                                                    Margin="4,2,4,7"/>
+                                            <TextBlock Text="Tên preset cá nhân" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Text="{Binding Settings.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ComboBox ItemsSource="{Binding SavedPresetNames}"
+                                                      SelectedItem="{Binding SelectedSavedPresetName}"
+                                                      Margin="4,4"/>
+                                            <WrapPanel>
+                                                <Button Content="Lưu / ghi đè"
+                                                        Command="{Binding SavePresetCommand}"/>
+                                                <Button Content="Nạp preset"
+                                                        Command="{Binding LoadPresetCommand}"/>
+                                                <Button Content="Xóa preset"
+                                                        Command="{Binding DeletePresetCommand}"
+                                                        Foreground="#FFFF6868"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="Preset lưu thiết lập edit/render; khi nạp sẽ giữ nguyên thư mục nguồn, nơi xuất và đường dẫn FFmpeg hiện tại."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="4,3"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Nơi lưu video — tự chọn ổ">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <Button Content="Chọn ổ / thư mục…" Command="{Binding ChooseOutputCommand}"/>
+                                                <TextBlock Text="{Binding Settings.OutputRoot}" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Settings.OutputRoot}" Margin="8,0"/>
+                                            </DockPanel>
+                                            <WrapPanel>
+                                                <CheckBox Content="Bỏ qua file đã tồn tại" IsChecked="{Binding Settings.SkipExisting}"/>
+                                                <CheckBox Content="Theo dõi thư mục" IsChecked="{Binding Settings.WatchFolderEnabled}"/>
+                                                <CheckBox Content="Quét thư mục con" IsChecked="{Binding Settings.IncludeSubfolders}"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="{Binding DiskSpaceStatusText}"
+                                                       Foreground="{StaticResource CyanBrush}"
+                                                       Margin="4,5,4,0"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Hiệu năng render">
+                                        <StackPanel>
+                                            <CheckBox Content="Ưu tiên tốc độ render cao nhất"
+                                                      IsChecked="{Binding Settings.FastestRenderMode}"
+                                                      FontWeight="SemiBold"
+                                                      ToolTip="Dùng preset encode nhanh nhất của GPU/CPU; chất lượng vẫn do ô Chất lượng điều khiển"/>
+                                            <TextBlock Text="Bộ mã hóa" Style="{StaticResource FieldLabel}"/>
+                                            <ComboBox ItemsSource="{Binding EncoderOptions}" ItemTemplate="{StaticResource UiOptionTemplate}"
+                                                      SelectedValuePath="Value" SelectedValue="{Binding Settings.GpuEncoder}"/>
+                                            <TextBlock Text="{Binding DetectedGpuText}" Foreground="{StaticResource CyanBrush}" Margin="4"/>
+                                            <UniformGrid Columns="2">
+                                                <TextBlock Text="Số luồng" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.WorkerCount, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBlock Text="Chất lượng (16–45)" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.Quality}"/>
+                                                <TextBlock Text="Số lần thử lại" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.MaxRetries}"/>
+                                                <TextBlock Text="Dự phòng ổ đĩa (GB)" Style="{StaticResource FieldLabel}"/><TextBox Text="{Binding Settings.MinimumFreeSpaceGb}"/>
+                                            </UniformGrid>
+                                            <CheckBox Content="Kiểm tra file đầu ra bằng FFprobe trước khi báo thành công"
+                                                      IsChecked="{Binding Settings.VerifyOutputAfterRender}"
+                                                      Margin="4,6,4,2"/>
+                                            <CheckBox Content="Kiểm tra sâu khung hình đầu–giữa–cuối"
+                                                      IsChecked="{Binding Settings.DeepOutputVerification}"
+                                                      IsEnabled="{Binding Settings.VerifyOutputAfterRender}"
+                                                      Margin="4,2"
+                                                      ToolTip="An toàn hơn nhưng chậm hơn; phù hợp khi cần chắc chắn file xuất có thể giải mã."/>
+                                            <CheckBox Content="Tự dọn file .partial còn sót khi thiếu dung lượng"
+                                                      IsChecked="{Binding Settings.AutoCleanPartialFiles}"
+                                                      Margin="4,2"/>
+                                            <CheckBox Content="Xóa ngay video render lỗi khi đã thử lại hết số lần"
+                                                      IsChecked="{Binding Settings.DeleteFailedSourceAfterRetries}"
+                                                      Foreground="#FFFFB65C"
+                                                      Margin="4,6,4,2"
+                                                      ToolTip="Chỉ xóa video nguồn khi FFmpeg đã chạy đủ lần đầu và toàn bộ số lần thử lại nhưng vẫn thất bại. Video được đưa vào Thùng rác."/>
+                                            <CheckBox Content="Ổ còn ≤ ngưỡng: dọn Thùng rác và tự chạy tiếp"
+                                                      IsChecked="{Binding Settings.EmptyRecycleBinWhenDiskFull}"
+                                                      Foreground="#FFFFB65C"
+                                                      Margin="4,2,4,2"
+                                                      ToolTip="Khi dung lượng ổ output còn bằng hoặc thấp hơn ngưỡng Dự phòng ổ đĩa (mặc định 10 GB), ứng dụng dọn vĩnh viễn toàn bộ Thùng rác rồi tiếp tục render. Không dọn khi ổ còn trên ngưỡng."/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <GroupBox Header="Nhật ký hoạt động">
+                                        <StackPanel>
+                                            <WrapPanel Margin="0,0,0,5">
+                                                <Button Content="Sao chép dòng chọn"
+                                                        Command="{Binding CopySelectedLogCommand}"
+                                                        Padding="9,4"
+                                                        ToolTip="Sao chép cả nội dung kỹ thuật nếu dòng lỗi có chi tiết"/>
+                                                <Button Content="Sao chép tất cả lỗi"
+                                                        Command="{Binding CopyAllErrorsCommand}"
+                                                        Padding="9,4"/>
+                                                <TextBlock Text="Chọn một dòng lỗi rồi bấm sao chép"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="7,0"/>
+                                            </WrapPanel>
+                                            <ListBox x:Name="ActivityLogList"
+                                                     ItemsSource="{Binding Logs}"
+                                                     SelectedItem="{Binding SelectedLog}"
+                                                     Height="220"
+                                                     HorizontalContentAlignment="Stretch"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="3,2">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding TimeText}" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding SeverityText}" Foreground="{StaticResource CyanBrush}" FontSize="10"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding DisplayMessage}" TextWrapping="Wrap"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" Width="1" HorizontalAlignment="Stretch" Background="#FF26364C"/>
+
+            <!-- Màn hình xem trước lớn -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Margin="7,5,5,5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="3,0,3,9">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="XEM TRƯỚC VIDEO" FontWeight="SemiBold" FontSize="15" Margin="0,0,12,0"/>
+                        <Grid Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding PreviewAspectText}" Foreground="{StaticResource CyanBrush}"
+                                       Margin="0,0,10,0" VerticalAlignment="Center"
+                                       ToolTip="Video nguồn ngang tự hiển thị theo tỷ lệ nguồn. Khi vào Crop, app chuyển sang lớp crop riêng; render/output không tự đổi tỷ lệ."/>
+                            <TextBlock Grid.Column="1" Text="{Binding SelectedJob.FileName}" Foreground="{StaticResource MutedBrush}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                       TextAlignment="Right" TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Background="#FF0B111B" ClipToBounds="True">
+                        <Viewbox Stretch="Uniform" StretchDirection="Both"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Width="{Binding PreviewCanvasWidth}" Height="{Binding PreviewCanvasHeight}" Background="#FF03060B"
+                                    BorderBrush="{StaticResource CyanBrush}" BorderThickness="2"
+                                    CornerRadius="12" ClipToBounds="True">
+                                <Grid Width="{Binding PreviewCanvasWidth}" Height="{Binding PreviewCanvasHeight}">
+                                        <MediaElement Source="{Binding PreviewUri}" LoadedBehavior="Play"
+                                                      UnloadedBehavior="Stop" Stretch="Uniform"/>
+                                        <Canvas x:Name="PreviewTitleCanvas" Width="{Binding PreviewCanvasWidth}" Height="{Binding PreviewCanvasHeight}" Background="Transparent"
+                                                Visibility="{Binding ShowPreviewEditOverlayCanvas, Converter={StaticResource BoolToVisibility}}"
+                                                IsHitTestVisible="{Binding ShowPreviewEditOverlayCanvas}"
+                                                MouseLeftButtonDown="PreviewTitle_MouseLeftButtonDown"
+                                                MouseMove="PreviewTitle_MouseMove"
+                                                MouseLeftButtonUp="PreviewTitle_MouseLeftButtonUp">
+                                            <Canvas.Style>
+                                                <Style TargetType="Canvas">
+                                                    <Setter Property="Cursor" Value="SizeAll"/>
+                                                    <Setter Property="ToolTip" Value="Kéo tiêu đề; bật nút Kéo vị trí phụ đề để chuyển sang kéo sub"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMouseCropEditMode}" Value="True">
+                                                            <Setter Property="Cursor" Value="Cross"/>
+                                                            <Setter Property="ToolTip" Value="CROP BẰNG CHUỘT: giữ chuột và kéo trực tiếp trên video để chọn vùng"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Canvas.Style>
+                                    <Image x:Name="PreviewTitleImage" Source="{Binding PreviewOverlayUri}"
+                                           Width="{Binding PreviewCanvasWidth}" Height="{Binding PreviewCanvasHeight}" Stretch="Uniform" IsHitTestVisible="False">
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseCropEditMode}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Settings.IsMouseCropCutOutside}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                    </Image>
+                                    <Border x:Name="PreviewWatermarkHandle"
+                                            Canvas.Left="{Binding WatermarkPreviewLeft}"
+                                            Canvas.Top="{Binding WatermarkPreviewTop}"
+                                            Width="{Binding WatermarkPreviewWidth}"
+                                            Height="{Binding WatermarkPreviewHeight}"
+                                            Visibility="{Binding HasWatermarkPreview, Converter={StaticResource BoolToVisibility}}"
+                                            Cursor="SizeAll"
+                                            ToolTip="Giữ chuột và kéo logo đến vị trí muốn đặt"
+                                            MouseLeftButtonDown="Watermark_MouseLeftButtonDown"
+                                            MouseMove="Watermark_MouseMove"
+                                            MouseLeftButtonUp="Watermark_MouseLeftButtonUp">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="IsHitTestVisible" Value="False"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWatermarkPositionEditMode}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource CyanBrush}"/>
+                                                        <Setter Property="BorderThickness" Value="5"/>
+                                                        <Setter Property="IsHitTestVisible" Value="True"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Image Source="{Binding WatermarkPreviewSource}"
+                                               Stretch="Uniform"
+                                               Opacity="{Binding Settings.WatermarkOpacity}"
+                                               IsHitTestVisible="False"/>
+                                    </Border>
+                                    <Border Canvas.Left="{Binding ExistingSubtitleBlurPreviewX}"
+                                            Canvas.Top="{Binding ExistingSubtitleBlurPreviewY}"
+                                            Width="{Binding ExistingSubtitleBlurPreviewWidth}"
+                                            Height="{Binding ExistingSubtitleBlurPreviewHeight}"
+                                            Background="#1820C8D5" BorderBrush="{StaticResource CyanBrush}"
+                                            BorderThickness="5" Cursor="SizeAll"
+                                            IsHitTestVisible="{Binding IsExistingSubtitleBlurEditMode}"
+                                            Visibility="{Binding Settings.ExistingSubtitleBlurEnabled, Converter={StaticResource BoolToVisibility}}"
+                                            ToolTip="Giữ chuột và kéo vùng này đến đúng phụ đề có sẵn"
+                                            MouseLeftButtonDown="ExistingSubtitleBlur_MouseLeftButtonDown"
+                                            MouseMove="ExistingSubtitleBlur_MouseMove"
+                                            MouseLeftButtonUp="ExistingSubtitleBlur_MouseLeftButtonUp">
+                                        <TextBlock Text="{Binding ExistingSubtitleBlurRegionLabel}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource CyanBrush}" Background="#B0080C13"
+                                                   FontSize="28" FontWeight="Bold" Padding="14,7"/>
+                                    </Border>
+                                    <Border Canvas.Left="0" Canvas.Top="{Binding CustomVideoTop}"
+                                                    Width="{Binding PreviewCanvasWidth}" Height="{Binding CustomVideoHeight}"
+                                                    Background="#1820C8D5" BorderBrush="{StaticResource CyanBrush}"
+                                                    BorderThickness="5"
+                                                    Visibility="{Binding IsCustomCropEditMode, Converter={StaticResource BoolToVisibility}}"
+                                                    Cursor="Cross"
+                                                    ToolTip="Kéo trong vùng để đặt tâm crop; kéo thanh trên/dưới để đổi tỷ lệ"
+                                                    MouseLeftButtonDown="CropFocusArea_MouseLeftButtonDown"
+                                                    MouseMove="CropFocusArea_MouseMove"
+                                                    MouseLeftButtonUp="CropFocusArea_MouseLeftButtonUp">
+                                                <TextBlock Text="{Binding CustomVideoRegionText}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="White" Background="#B0080C13"
+                                                           FontSize="34" FontWeight="Bold" Padding="18,9"/>
+                                            </Border>
+                                            <Border Canvas.Left="0" Canvas.Top="{Binding CustomVideoTop}"
+                                                    Width="{Binding PreviewCanvasWidth}" Height="24" Background="{StaticResource CyanBrush}"
+                                                    Cursor="SizeNS" ToolTip="Kéo để đổi chiều cao vùng video"
+                                                    Visibility="{Binding IsCustomCropEditMode, Converter={StaticResource BoolToVisibility}}"
+                                                    MouseLeftButtonDown="CropTopHandle_MouseLeftButtonDown"
+                                                    MouseMove="CropHandle_MouseMove"
+                                                    MouseLeftButtonUp="CropHandle_MouseLeftButtonUp"/>
+
+                                            <Border Canvas.Left="0" Canvas.Top="{Binding CustomVideoBottomHandleTop}"
+                                                    Width="{Binding PreviewCanvasWidth}" Height="24" Background="{StaticResource CyanBrush}"
+                                                    Cursor="SizeNS" ToolTip="Kéo để đổi chiều cao vùng video"
+                                                    Visibility="{Binding IsCustomCropEditMode, Converter={StaticResource BoolToVisibility}}"
+                                                    MouseLeftButtonDown="CropBottomHandle_MouseLeftButtonDown"
+                                                    MouseMove="CropHandle_MouseMove"
+                                                    MouseLeftButtonUp="CropHandle_MouseLeftButtonUp"/>
+                                            <Border x:Name="PreviewSubtitleHandle"
+                                                    Canvas.Left="{Binding SubtitlePreviewLeft}"
+                                                    Canvas.Top="{Binding SubtitlePreviewTop}"
+                                                    Width="600" Height="90" CornerRadius="16"
+                                                    Background="#CC080C13" BorderBrush="{StaticResource CyanBrush}"
+                                                    BorderThickness="3" Padding="12"
+                                                    Visibility="{Binding IsSubtitlePositionEditMode, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="KÉO VỊ TRÍ PHỤ ĐỀ" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           TextAlignment="Center" FontFamily="{Binding Settings.SubtitleFontFamily}"
+                                                           FontSize="34" FontWeight="SemiBold" Foreground="{Binding Settings.SubtitleTextColor}"/>
+                                            </Border>
+                                        </Canvas>
+                                            <Canvas x:Name="MouseCropCanvas"
+                                                    Panel.ZIndex="1000"
+                                                    Width="{Binding MainVideoPreviewWidth}" Height="{Binding MainVideoPreviewHeight}"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    Background="Transparent" ClipToBounds="True" Cursor="Cross"
+                                                    Visibility="{Binding IsMouseCropEditMode, Converter={StaticResource BoolToVisibility}}"
+                                                    IsHitTestVisible="{Binding IsMouseCropEditMode}"
+                                                    ToolTip="Kéo quanh vùng muốn giữ; khung crop không nở ra ngoài vùng bạn kéo"
+                                                    MouseLeftButtonDown="MouseCropCanvas_MouseLeftButtonDown"
+                                                    MouseMove="MouseCropCanvas_MouseMove"
+                                                    MouseLeftButtonUp="MouseCropCanvas_MouseLeftButtonUp">
+                                                <Border Canvas.Left="{Binding PreviewBannerLeft}" Canvas.Top="28" Width="740" Height="76"
+                                                        Background="#D9080C13" BorderBrush="{StaticResource CyanBrush}"
+                                                        BorderThickness="3" CornerRadius="14" IsHitTestVisible="False">
+                                                    <TextBlock Text="&#x2702; CROP B&#x1EB0;NG CHU&#x1ED8;T &#x2022; GI&#x1EEE; V&#xC0; K&#xC9;O &#x110;&#x1EC2; CH&#x1ECC;N V&#xD9;NG"
+                                                               Foreground="{StaticResource CyanBrush}" FontSize="28" FontWeight="Bold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <Border x:Name="MouseCropSelectionBorder"
+                                                        Canvas.Left="{Binding MouseCropPreviewLeft}"
+                                                        Canvas.Top="{Binding MouseCropPreviewTop}"
+                                                        Width="{Binding MouseCropPreviewWidth}"
+                                                        Height="{Binding MouseCropPreviewHeight}"
+                                                        BorderBrush="{StaticResource CyanBrush}" BorderThickness="7"
+                                                        Background="#2020C8D5" IsHitTestVisible="False">
+                                                    <TextBlock Text="VÙNG CROP" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource CyanBrush}" Background="#CC080C13"
+                                                               FontSize="30" FontWeight="Bold" Padding="16,8"/>
+                                                </Border>
+                                            </Canvas>
+                                </Grid>
+                            </Border>
+                        </Viewbox>
+                    </Grid>
+
+                    <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <WrapPanel Grid.Column="0" Orientation="Horizontal">
+                                <Button Style="{StaticResource PrimaryButton}" Content="▶ Đầu"
+                                        Command="{Binding PreviewStartCommand}" ToolTip="Xem thử 6 giây ở đầu đoạn"
+                                        Padding="8,5" Margin="2"/>
+                                <Button Content="Giữa"
+                                        Command="{Binding PreviewMiddleCommand}" ToolTip="Xem thử 6 giây ở giữa đoạn"
+                                        Padding="8,5" Margin="2"/>
+                                <Button Content="Cuối"
+                                        Command="{Binding PreviewEndCommand}" ToolTip="Xem thử 6 giây ở cuối đoạn"
+                                        Padding="8,5" Margin="2"/>
+                                <Button Content="Ảnh" Command="{Binding ThumbnailsCommand}"
+                                        ToolTip="Tạo ảnh nhỏ" Padding="8,5" Margin="2"/>
+                                <Button Content="{Binding SubtitlePositionButtonText}"
+                                        Command="{Binding ToggleSubtitlePositionEditCommand}"
+                                        ToolTip="Kéo vị trí phụ đề mới" Padding="8,5" Margin="2"/>
+                                <Button Content="{Binding ExistingSubtitleBlurButtonText}"
+                                        Command="{Binding ToggleExistingSubtitleBlurEditCommand}"
+                                        ToolTip="Bật vùng làm mờ rồi kéo trực tiếp trên màn hình"
+                                        Padding="8,5" Margin="2"/>
+                                <Button Content="{Binding WatermarkPositionButtonText}"
+                                        Command="{Binding ToggleWatermarkPositionEditCommand}"
+                                        ToolTip="Kéo logo / watermark trực tiếp trên màn hình"
+                                        Padding="8,5" Margin="2"/>
+                            </WrapPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Margin="6,0,2,0">
+                                <TextBlock Text="{Binding SelectedPart.Name}" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AccentLightBrush}" FontSize="10"
+                                           Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding SelectedPart.TimeRange}"
+                                           Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Kéo trực tiếp trên preview • thả chuột để cập nhật"
+                                   Foreground="{StaticResource CyanBrush}" FontSize="9" Margin="4,2,4,0"/>
+                        <Slider Minimum="0" Maximum="{Binding SelectedJob.Media.DurationSeconds}"
+                                Margin="2,1,2,0"
+                                Value="{Binding SelectedPart.StartSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#FF0D1522" BorderBrush="#FF263850"
+                BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,4,0,0">
+            <Grid>
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRendering}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="82"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="18"/>
+                        <RowDefinition Height="14"/>
+                        <RowDefinition Height="18"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="{Binding StatusText}"
+                               Foreground="{StaticResource CyanBrush}"
+                               FontWeight="SemiBold" FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding StatusText}"/>
+                    <ProgressBar Grid.Row="1" Margin="0,2,10,2"
+                                 Style="{StaticResource OverallProgressBar}"
+                                 Value="{Binding OverallProgressPercent, Mode=OneWay}"/>
+                    <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,1,10,0">
+                        <TextBlock DockPanel.Dock="Right"
+                                   Text="{Binding OverallProgressEtaText}"
+                                   Foreground="{StaticResource AccentLightBrush}"
+                                   FontSize="10" Margin="14,0,0,0"/>
+                        <TextBlock Text="{Binding OverallProgressDetailsText}"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="10" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <Border Grid.Column="1" Grid.RowSpan="3" Margin="8,0,0,0"
+                            Background="#FF332879" BorderBrush="#FF7663DB"
+                            BorderThickness="1" CornerRadius="8">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding OverallProgressPercentText}"
+                                       HorizontalAlignment="Center"
+                                       Foreground="White" FontSize="17"
+                                       FontWeight="Bold"/>
+                            <TextBlock Text="TỔNG" HorizontalAlignment="Center"
+                                       Foreground="#FFBFB3FF" FontSize="8"
+                                       FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{StaticResource CyanBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRendering}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

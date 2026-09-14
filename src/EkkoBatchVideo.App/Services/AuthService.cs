@@ -29,6 +29,8 @@ public sealed class AuthService : IDisposable
     }
     public async Task<bool> ForgotPasswordAsync(string email, CancellationToken ct = default)
     { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/forgot-password", new { email }, ct); if (!response.IsSuccessStatusCode) return false; var result = await response.Content.ReadFromJsonAsync<ForgotResponse>(cancellationToken: ct); return result?.EmailSent == true; }
+    public async Task<bool> ChangePasswordAsync(string currentPassword, string newPassword, CancellationToken ct = default)
+    { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/change-password", new { token = Token, currentPassword, newPassword }, ct); return response.IsSuccessStatusCode; }
     public void Dispose() => _http.Dispose();
     private sealed record AuthResponse(string Token, bool Valid, string Email, DateTimeOffset ExpiresAt);
     private sealed record CheckResponse(bool Valid, string Email, DateTimeOffset ExpiresAt);
