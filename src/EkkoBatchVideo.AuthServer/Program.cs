@@ -33,7 +33,7 @@ void Save() {
     foreach (var user in users.Values) { using var command = new NpgsqlCommand("INSERT INTO accounts(email,password_hash,expires_at) VALUES($1,$2,$3) ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,expires_at=EXCLUDED.expires_at", connection); command.Parameters.AddWithValue(user.Email); command.Parameters.AddWithValue(user.PasswordHash); command.Parameters.AddWithValue(user.ExpiresAt); command.ExecuteNonQuery(); }
 }
 static string NormalizeConnectionString(string value) {
-    if (!value.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)) return value;
+    if (!value.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)) return value.Replace("user=", "Username=", StringComparison.OrdinalIgnoreCase);
     var uri = new Uri(value); var userInfo = uri.UserInfo.Split(':', 2);
     return new NpgsqlConnectionStringBuilder { Host = uri.Host, Port = uri.Port > 0 ? uri.Port : 5432, Username = Uri.UnescapeDataString(userInfo[0]), Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "", Database = uri.AbsolutePath.Trim('/'), SslMode = SslMode.Require }.ConnectionString;
 }
