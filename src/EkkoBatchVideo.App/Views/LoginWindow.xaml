@@ -1,4 +1,4 @@
-<Window x:Class="EkkoBatchVideo.Views.LoginWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Đăng nhập Ekko Tools" Width="420" Height="400" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#FF101827" Foreground="White">
+<Window x:Class="EkkoBatchVideo.Views.LoginWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Đăng nhập Ekko Tools" Width="560" Height="400" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#FF101827" Foreground="White">
   <StackPanel Margin="32">
     <TextBlock Text="Ekko Tools" FontSize="26" FontWeight="Bold" Foreground="#FF25D7E8"/>
     <TextBlock Text="Đăng nhập để sử dụng ứng dụng" Margin="0,6,0,22" Foreground="#FFB5C2D6"/>
