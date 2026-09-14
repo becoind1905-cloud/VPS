@@ -22,7 +22,7 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
     if (email.Length < 5 || !email.Contains('@') || request.Password.Length < 8) return Results.BadRequest(new { message = "Email hoặc mật khẩu không hợp lệ (mật khẩu tối thiểu 8 ký tự)." });
     if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
-    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow); Save();
+    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow.AddDays(3)); Save();
     return Login(email, request.Password);
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
