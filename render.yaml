@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ekko-auth-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: EKKO_ADMIN_KEY
+        sync: false
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
