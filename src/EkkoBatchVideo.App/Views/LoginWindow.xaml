@@ -4,7 +4,7 @@
     <TextBlock Text="Đăng nhập để sử dụng ứng dụng" Margin="0,6,0,22" Foreground="#FFB5C2D6"/>
     <TextBlock Text="Email"/><TextBox x:Name="EmailBox" Margin="0,4,0,10" Padding="8"/>
     <TextBlock Text="Mật khẩu"/><PasswordBox x:Name="PasswordBox" Margin="0,4,0,14" Padding="8"/>
-    <StackPanel Orientation="Horizontal"><Button Content="Đăng nhập" Width="120" Padding="8" Click="Login_Click"/><Button Content="Đăng ký (dùng thử 3 ngày)" Margin="8,0,0,0" Padding="8" Click="Register_Click"/><Button Content="Quên mật khẩu" Margin="8,0,0,0" Padding="8" Click="Forgot_Click"/></StackPanel>
+    <StackPanel Orientation="Horizontal"><Button Content="Đăng nhập" Width="120" Padding="8" Click="Login_Click"/><Button Content="Đăng ký" Margin="8,0,0,0" Padding="8" Click="Register_Click"/><Button Content="Quên mật khẩu" Margin="8,0,0,0" Padding="8" Click="Forgot_Click"/></StackPanel>
     <TextBlock x:Name="ErrorText" Foreground="#FFFF8A8A" TextWrapping="Wrap" Margin="0,14,0,0"/>
   </StackPanel>
 </Window>
