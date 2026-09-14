@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -9,12 +10,33 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 var users = new ConcurrentDictionary<string, User>(StringComparer.OrdinalIgnoreCase);
 var tokens = new ConcurrentDictionary<string, Session>();
+var resetTokens = new ConcurrentDictionary<string, ResetToken>();
 var database = Path.Combine(AppContext.BaseDirectory, "accounts.json");
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var adminKey = Environment.GetEnvironmentVariable("EKKO_ADMIN_KEY") ?? "change-this-admin-key";
-if (File.Exists(database))
+if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
+    using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl));
+    connection.Open();
+    using var create = new NpgsqlCommand("CREATE TABLE IF NOT EXISTS accounts (email text PRIMARY KEY, password_hash text NOT NULL, expires_at timestamptz NOT NULL)", connection);
+    create.ExecuteNonQuery();
+    using var select = new NpgsqlCommand("SELECT email,password_hash,expires_at FROM accounts", connection);
+    using var reader = select.ExecuteReader();
+    while (reader.Read()) users[reader.GetString(0)] = new User(reader.GetString(0), reader.GetString(1), reader.GetFieldValue<DateTimeOffset>(2));
+}
+else if (File.Exists(database))
     foreach (var user in System.Text.Json.JsonSerializer.Deserialize<List<User>>(File.ReadAllText(database)) ?? []) users[user.Email] = user;
 
-void Save() => File.WriteAllText(database, System.Text.Json.JsonSerializer.Serialize(users.Values));
+void Save() {
+    if (string.IsNullOrWhiteSpace(databaseUrl)) { File.WriteAllText(database, System.Text.Json.JsonSerializer.Serialize(users.Values)); return; }
+    using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl)); connection.Open();
+    foreach (var user in users.Values) { using var command = new NpgsqlCommand("INSERT INTO accounts(email,password_hash,expires_at) VALUES($1,$2,$3) ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,expires_at=EXCLUDED.expires_at", connection); command.Parameters.AddWithValue(user.Email); command.Parameters.AddWithValue(user.PasswordHash); command.Parameters.AddWithValue(user.ExpiresAt); command.ExecuteNonQuery(); }
+}
+static string NormalizeConnectionString(string value) {
+    if (!value.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)) return value;
+    var uri = new Uri(value); var userInfo = uri.UserInfo.Split(':', 2);
+    return new NpgsqlConnectionStringBuilder { Host = uri.Host, Port = uri.Port > 0 ? uri.Port : 5432, Username = Uri.UnescapeDataString(userInfo[0]), Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "", Database = uri.AbsolutePath.Trim('/'), SslMode = SslMode.Require }.ConnectionString;
+}
 static string Hash(string value) => Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(value, "EkkoAuth"u8.ToArray(), 120_000, HashAlgorithmName.SHA256, 32));
 static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
@@ -26,6 +48,21 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
     return Login(email, request.Password);
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
+app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
+    var email = request.Email.Trim().ToLowerInvariant();
+    if (users.TryGetValue(email, out _)) {
+        var token = NewToken(); resetTokens[token] = new ResetToken(email, DateTimeOffset.UtcNow.AddMinutes(30));
+        var key = Environment.GetEnvironmentVariable("RESEND_API_KEY");
+        var from = Environment.GetEnvironmentVariable("MAIL_FROM") ?? "onboarding@resend.dev";
+        var publicUrl = Environment.GetEnvironmentVariable("PUBLIC_URL") ?? "https://vps-x317.onrender.com";
+        if (!string.IsNullOrWhiteSpace(key)) { using var client = new HttpClient(); client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key); await client.PostAsJsonAsync("https://api.resend.com/emails", new { from, to = new[] { email }, subject = "Đặt lại mật khẩu Ekko Tools", html = $"<p>Bấm vào liên kết để đặt lại mật khẩu (có hiệu lực 30 phút):</p><p><a href=\"{publicUrl}/reset.html?token={token}\">Đặt lại mật khẩu</a></p>" }); }
+    }
+    return Results.Ok(new { message = "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi." });
+});
+app.MapPost("/api/auth/reset-password", (ResetRequest request) => {
+    if (!resetTokens.TryRemove(request.Token, out var reset) || reset.ExpiresAt <= DateTimeOffset.UtcNow || !users.TryGetValue(reset.Email, out var user) || request.Password.Length < 8) return Results.BadRequest(new { message = "Liên kết không hợp lệ hoặc đã hết hạn." });
+    user.PasswordHash = Hash(request.Password); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
+});
 app.MapPost("/api/auth/check", (CheckRequest request) => {
     if (!tokens.TryGetValue(request.Token ?? "", out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow) return Results.Unauthorized();
     if (!users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
@@ -72,6 +109,9 @@ IResult Login(string email, string password) {
 record RegisterRequest(string Email, string Password);
 record LoginRequest(string Email, string Password);
 record CheckRequest(string? Token);
+record ForgotRequest(string Email);
+record ResetRequest(string Token, string Password);
 record ExpiryRequest(int Days = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt);
+record ResetToken(string Email, DateTimeOffset ExpiresAt);
 sealed class User(string email, string passwordHash, DateTimeOffset expiresAt) { public string Email { get; set; } = email; public string PasswordHash { get; set; } = passwordHash; public DateTimeOffset ExpiresAt { get; set; } = expiresAt; }
