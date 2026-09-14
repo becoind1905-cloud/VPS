@@ -22,7 +22,7 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
     if (email.Length < 5 || !email.Contains('@') || request.Password.Length < 8) return Results.BadRequest(new { message = "Email hoặc mật khẩu không hợp lệ (mật khẩu tối thiểu 8 ký tự)." });
     if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
-    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow.AddDays(30)); Save();
+    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow); Save();
     return Login(email, request.Password);
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
@@ -30,11 +30,6 @@ app.MapPost("/api/auth/check", (CheckRequest request) => {
     if (!tokens.TryGetValue(request.Token ?? "", out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow) return Results.Unauthorized();
     if (!users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
     return Results.Ok(new { valid = user.ExpiresAt > DateTimeOffset.UtcNow, email = user.Email, expiresAt = user.ExpiresAt });
-});
-app.MapPost("/api/auth/renew", (RenewRequest request) => {
-    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
-    user.ExpiresAt = user.ExpiresAt > DateTimeOffset.UtcNow ? user.ExpiresAt.AddDays(Math.Clamp(request.Days, 1, 3650)) : DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, 1, 3650)); Save();
-    return Results.Ok(new { valid = true, email = user.Email, expiresAt = user.ExpiresAt });
 });
 // Các API nghiệp vụ có thể dùng cùng quy tắc này: token hợp lệ và tài khoản còn hạn.
 app.MapGet("/api/protected/ping", (HttpRequest request) => {
@@ -77,7 +72,6 @@ IResult Login(string email, string password) {
 record RegisterRequest(string Email, string Password);
 record LoginRequest(string Email, string Password);
 record CheckRequest(string? Token);
-record RenewRequest(string? Token, int Days);
 record ExpiryRequest(int Days = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt);
 sealed class User(string email, string passwordHash, DateTimeOffset expiresAt) { public string Email { get; set; } = email; public string PasswordHash { get; set; } = passwordHash; public DateTimeOffset ExpiresAt { get; set; } = expiresAt; }
