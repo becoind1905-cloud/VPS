@@ -48,6 +48,11 @@ app.MapGet("/api/admin/users", (HttpRequest request) => {
     if (!IsAdmin(request)) return Results.Unauthorized();
     return Results.Ok(users.Values.OrderBy(u => u.Email).Select(u => new { u.Email, u.ExpiresAt, active = u.ExpiresAt > DateTimeOffset.UtcNow }));
 });
+app.MapGet("/api/admin/backup", (HttpRequest request) => {
+    if (!IsAdmin(request)) return Results.Unauthorized();
+    var json = System.Text.Json.JsonSerializer.Serialize(users.Values.OrderBy(u => u.Email));
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", $"ekko-accounts-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
+});
 app.MapPost("/api/admin/users/{email}/expiry", (string email, ExpiryRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
     if (!users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.NotFound();
