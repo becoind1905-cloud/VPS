@@ -1,0 +1,78 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+app.UseDefaultFiles();
+app.UseStaticFiles();
+var users = new ConcurrentDictionary<string, User>(StringComparer.OrdinalIgnoreCase);
+var tokens = new ConcurrentDictionary<string, Session>();
+var database = Path.Combine(AppContext.BaseDirectory, "accounts.json");
+var adminKey = Environment.GetEnvironmentVariable("EKKO_ADMIN_KEY") ?? "change-this-admin-key";
+if (File.Exists(database))
+    foreach (var user in System.Text.Json.JsonSerializer.Deserialize<List<User>>(File.ReadAllText(database)) ?? []) users[user.Email] = user;
+
+void Save() => File.WriteAllText(database, System.Text.Json.JsonSerializer.Serialize(users.Values));
+static string Hash(string value) => Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(value, "EkkoAuth"u8.ToArray(), 120_000, HashAlgorithmName.SHA256, 32));
+static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+
+app.MapPost("/api/auth/register", (RegisterRequest request) => {
+    var email = request.Email.Trim().ToLowerInvariant();
+    if (email.Length < 5 || !email.Contains('@') || request.Password.Length < 8) return Results.BadRequest(new { message = "Email hoặc mật khẩu không hợp lệ (mật khẩu tối thiểu 8 ký tự)." });
+    if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
+    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow.AddDays(30)); Save();
+    return Login(email, request.Password);
+});
+app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
+app.MapPost("/api/auth/check", (CheckRequest request) => {
+    if (!tokens.TryGetValue(request.Token ?? "", out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow) return Results.Unauthorized();
+    if (!users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
+    return Results.Ok(new { valid = user.ExpiresAt > DateTimeOffset.UtcNow, email = user.Email, expiresAt = user.ExpiresAt });
+});
+app.MapPost("/api/auth/renew", (RenewRequest request) => {
+    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
+    user.ExpiresAt = user.ExpiresAt > DateTimeOffset.UtcNow ? user.ExpiresAt.AddDays(Math.Clamp(request.Days, 1, 3650)) : DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, 1, 3650)); Save();
+    return Results.Ok(new { valid = true, email = user.Email, expiresAt = user.ExpiresAt });
+});
+// Các API nghiệp vụ có thể dùng cùng quy tắc này: token hợp lệ và tài khoản còn hạn.
+app.MapGet("/api/protected/ping", (HttpRequest request) => {
+    var token = request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase);
+    if (!tokens.TryGetValue(token, out var session) || !users.TryGetValue(session.Email, out var user) || user.ExpiresAt <= DateTimeOffset.UtcNow)
+        return Results.Json(new { message = "Tài khoản hết hạn hoặc token không hợp lệ." }, statusCode: StatusCodes.Status403Forbidden);
+    return Results.Ok(new { authorized = true, email = user.Email, expiresAt = user.ExpiresAt });
+});
+bool IsAdmin(HttpRequest request) => request.Headers.TryGetValue("X-Admin-Key", out var key) && key == adminKey;
+app.MapGet("/api/admin/users", (HttpRequest request) => {
+    if (!IsAdmin(request)) return Results.Unauthorized();
+    return Results.Ok(users.Values.OrderBy(u => u.Email).Select(u => new { u.Email, u.ExpiresAt, active = u.ExpiresAt > DateTimeOffset.UtcNow }));
+});
+app.MapPost("/api/admin/users/{email}/expiry", (string email, ExpiryRequest request, HttpRequest http) => {
+    if (!IsAdmin(http)) return Results.Unauthorized();
+    if (!users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.NotFound();
+    user.ExpiresAt = request.ExpiresAt ?? (DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, -3650, 3650)));
+    Save();
+    return Results.Ok(new { user.Email, user.ExpiresAt, active = user.ExpiresAt > DateTimeOffset.UtcNow });
+});
+app.MapPost("/api/admin/users/{email}/revoke", (string email, HttpRequest http) => {
+    if (!IsAdmin(http)) return Results.Unauthorized();
+    if (!users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.NotFound();
+    user.ExpiresAt = DateTimeOffset.UtcNow; Save();
+    foreach (var pair in tokens.Where(p => p.Value.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))) tokens.TryRemove(pair.Key, out _);
+    return Results.Ok(new { user.Email, user.ExpiresAt, active = false });
+});
+app.Run();
+
+IResult Login(string email, string password) {
+    if (!users.TryGetValue(email, out var user) || user.PasswordHash != Hash(password)) return Results.Unauthorized();
+    var token = NewToken(); tokens[token] = new Session(email, DateTimeOffset.UtcNow.AddDays(30));
+    return Results.Ok(new { token, valid = user.ExpiresAt > DateTimeOffset.UtcNow, email, expiresAt = user.ExpiresAt });
+}
+record RegisterRequest(string Email, string Password);
+record LoginRequest(string Email, string Password);
+record CheckRequest(string? Token);
+record RenewRequest(string? Token, int Days);
+record ExpiryRequest(int Days = 0, DateTimeOffset? ExpiresAt = null);
+record Session(string Email, DateTimeOffset ExpiresAt);
+sealed class User(string email, string passwordHash, DateTimeOffset expiresAt) { public string Email { get; set; } = email; public string PasswordHash { get; set; } = passwordHash; public DateTimeOffset ExpiresAt { get; set; } = expiresAt; }
