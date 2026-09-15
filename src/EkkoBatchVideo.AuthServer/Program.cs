@@ -42,7 +42,7 @@ static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(3
 
 app.MapPost("/api/auth/register", (RegisterRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
-    if (email.Length < 3 || !email.Contains('@') || request.Password.Length < 1) return Results.BadRequest(new { message = "Email không hợp lệ hoặc mật khẩu đang để trống." });
+    if (email.Length < 1 || request.Password.Length < 1) return Results.BadRequest(new { message = "Tài khoản hoặc mật khẩu đang để trống." });
     if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
     // Không tự cấp thời gian. Tài khoản chờ admin duyệt và cấp hạn.
     users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow); Save();
