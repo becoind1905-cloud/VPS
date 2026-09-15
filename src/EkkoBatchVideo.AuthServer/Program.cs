@@ -94,6 +94,21 @@ app.MapGet("/api/admin/backup", (HttpRequest request) => {
     var json = System.Text.Json.JsonSerializer.Serialize(users.Values.OrderBy(u => u.Email));
     return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", $"ekko-accounts-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
 });
+app.MapPost("/api/admin/users", (AdminCreateUserRequest request, HttpRequest http) => {
+    if (!IsAdmin(http)) return Results.Unauthorized();
+    var email = request.Email.Trim().ToLowerInvariant();
+    if (email.Length < 1 || request.Password.Length < 1) return Results.BadRequest(new { message = "Tài khoản hoặc mật khẩu đang để trống." });
+    if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
+    var expiresAt = request.ExpiresAt ?? (request.Hours != 0
+        ? DateTimeOffset.UtcNow.AddHours(Math.Clamp(request.Hours, -87600, 87600))
+        : request.Days != 0
+            ? DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, -3650, 3650))
+            : DateTimeOffset.UtcNow);
+    var user = new User(email, Hash(request.Password), expiresAt);
+    users[email] = user;
+    Save();
+    return Results.Ok(new { user.Email, user.ExpiresAt, active = user.ExpiresAt > DateTimeOffset.UtcNow, deviceLocked = false });
+});
 app.MapPost("/api/admin/users/{email}/expiry", (string email, ExpiryRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
     if (!users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.NotFound();
@@ -161,6 +176,7 @@ record CheckRequest(string? Token, string? DeviceId = null);
 record ForgotRequest(string Email);
 record ResetRequest(string Token, string Password);
 record PasswordRequest(string Password);
+record AdminCreateUserRequest(string Email, string Password, int Days = 0, double Hours = 0, DateTimeOffset? ExpiresAt = null);
 record ExpiryRequest(int Days = 0, double Hours = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt, string? DeviceId);
 record ResetToken(string Email, DateTimeOffset ExpiresAt);

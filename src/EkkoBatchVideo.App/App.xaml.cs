@@ -15,7 +15,7 @@ public partial class App : Application
 
     public App() => WriteStartupTrace("App constructor");
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         WriteStartupTrace("OnStartup start");
         base.OnStartup(e);
@@ -41,20 +41,37 @@ public partial class App : Application
         };
         WriteStartupTrace("Creating AuthService");
         _auth = new AuthService();
-        // Luôn cho người dùng thấy màn đăng nhập trước. Kiểm tra token cũ
-        // bằng cách chờ đồng bộ ở startup có thể làm WPF đứng nền không cửa sổ
-        // khi mạng/Render phản hồi chậm.
-        WriteStartupTrace("Creating LoginWindow");
-        var login = new LoginWindow(_auth);
-        WriteStartupTrace("Showing LoginWindow");
-        if (login.ShowDialog() != true)
+
+        AuthStatus? authStatus = null;
+        if (!string.IsNullOrWhiteSpace(_auth.Token))
         {
-            WriteStartupTrace("LoginWindow closed without success");
-            Shutdown();
-            return;
+            WriteStartupTrace("Checking saved token");
+            using var startupCts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            try
+            {
+                authStatus = await _auth.CheckAsync(startupCts.Token);
+            }
+            catch
+            {
+                authStatus = null;
+            }
         }
-        WriteStartupTrace("LoginWindow returned success");
-        var authStatus = login.AuthStatus;
+
+        if (authStatus is null)
+        {
+            WriteStartupTrace("Creating LoginWindow");
+            var login = new LoginWindow(_auth);
+            WriteStartupTrace("Showing LoginWindow");
+            if (login.ShowDialog() != true)
+            {
+                WriteStartupTrace("LoginWindow closed without success");
+                Shutdown();
+                return;
+            }
+            WriteStartupTrace("LoginWindow returned success");
+            authStatus = login.AuthStatus;
+        }
+
         if (authStatus is null) { WriteStartupTrace("AuthStatus was null"); Shutdown(); return; }
         if (!authStatus.Valid)
         {

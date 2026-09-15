@@ -74,8 +74,8 @@
         <Grid Grid.Row="0" Margin="4,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="760"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border Width="48" Height="48" CornerRadius="12" Background="#FF0A0F18" Margin="0,0,12,0" ClipToBounds="True">
@@ -96,27 +96,27 @@
             <Border Grid.Column="1" Style="{StaticResource RenderCard}" Padding="12,8" Margin="4">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100*"/>
+                        <ColumnDefinition Width="260"/>
                         <ColumnDefinition Width="1"/>
-                        <ColumnDefinition Width="100*"/>
+                        <ColumnDefinition Width="135"/>
                         <ColumnDefinition Width="1"/>
-                        <ColumnDefinition Width="125*"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="CHỌN VIDEO" FontWeight="SemiBold" FontSize="12" Margin="3,0,3,4"/>
+                        <TextBlock Text="CHỌN VIDEO" FontWeight="SemiBold" FontSize="12" Margin="3,0,3,3"/>
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Chọn nhiều thư mục" Command="{Binding PickFolderCommand}"
                                     ToolTip="Có thể chọn nhiều thư mục cùng lúc; video được cộng dồn và tự bỏ file trùng"
-                                    Padding="10,6"/>
-                            <Button Content="Thêm video" Command="{Binding AddVideosCommand}" Padding="10,6"/>
+                                    Padding="9,6"/>
+                            <Button Content="Thêm video" Command="{Binding AddVideosCommand}" Padding="9,6"/>
                         </StackPanel>
                     </StackPanel>
 
-                    <Border Grid.Column="1" Width="1" Background="#FF34445C" Margin="12,2"/>
+                    <Border Grid.Column="1" Width="1" Background="#FF34445C" Margin="10,2"/>
 
-                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="14,0">
-                        <TextBlock Text="RENDER VIDEO" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0">
+                        <TextBlock Text="RENDER VIDEO" FontWeight="SemiBold" FontSize="12"/>
                         <TextBlock Text="{Binding QueueSummary}" Foreground="{StaticResource CyanBrush}"
                                    FontSize="10" TextWrapping="Wrap" MaxHeight="27" LineHeight="12"
                                    ToolTip="{Binding QueueSummary}"/>
@@ -124,23 +124,25 @@
                                    FontSize="9" TextTrimming="CharacterEllipsis" ToolTip="{Binding DetectedGpuText}"/>
                     </StackPanel>
 
-                    <Border Grid.Column="3" Width="1" Background="#FF34445C" Margin="12,2"/>
+                    <Border Grid.Column="3" Width="1" Background="#FF34445C" Margin="10,2"/>
 
-                    <Grid Grid.Column="4" VerticalAlignment="Center" Margin="14,0,2,0">
+                    <Grid Grid.Column="4" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Style="{StaticResource RenderButton}" Content="▶  RENDER"
-                                Command="{Binding RenderCommand}" Padding="14,9"/>
-                        <Button Grid.Column="1" Content="{Binding PauseButtonText}" Command="{Binding PauseResumeCommand}" Padding="8,6"/>
-                        <Button Grid.Column="2" Content="Hủy" Command="{Binding CancelCommand}" Padding="8,6"/>
-                        <CheckBox Grid.Row="1" Grid.ColumnSpan="3" Content="Xóa video gốc sau khi render thành công"
-                                  IsChecked="{Binding Settings.DeleteSourceAfterSuccess}" FontSize="10" Margin="5,1,5,0"/>
-                        <CheckBox Grid.Row="2" Grid.ColumnSpan="3"
-                                  Content="Dọn rác + xóa thư mục trống"
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RenderButton}" Content="▶  RENDER"
+                                    Command="{Binding RenderCommand}" Padding="14,9"/>
+                            <Button Content="{Binding PauseButtonText}" Command="{Binding PauseResumeCommand}" Padding="10,6"/>
+                            <Button Content="Hủy" Command="{Binding CancelCommand}" Padding="10,6"/>
+                        </StackPanel>
+                        <CheckBox Grid.Row="1" Content="Xóa video gốc sau render"
+                                  IsChecked="{Binding Settings.DeleteSourceAfterSuccess}" FontSize="10" Margin="5,1,5,0"
+                                  ToolTip="Xóa video gốc sau khi render thành công"/>
+                        <CheckBox Grid.Row="2"
+                                  Content="Dọn rác + thư mục trống"
                                   IsChecked="{Binding Settings.EmptyRecycleBinAfterSuccessfulRun}"
                                   IsEnabled="{Binding Settings.DeleteSourceAfterSuccess}"
                                   FontSize="10" Margin="5,1,5,0"
@@ -149,18 +151,18 @@
                 </Grid>
             </Border>
 
-            <UniformGrid Grid.Column="2" Columns="5" Rows="1"
-                         HorizontalAlignment="Right" VerticalAlignment="Center"
-                         Margin="6,0,0,0">
-                <Button Content="Nơi lưu" Command="{Binding ChooseOutputCommand}"
-                        ToolTip="Chọn ổ đĩa và thư mục lưu video render" Padding="10,6"/>
-                <Button Content="Video xuất" Command="{Binding OpenLatestOutputCommand}"
-                        ToolTip="Mở video MP4 được xuất gần nhất" Padding="10,6"/>
-                <Button Content="Thư mục xuất" Command="{Binding OpenOutputFolderCommand}"
-                        ToolTip="{Binding Settings.OutputRoot}" Padding="10,6"/>
-                <Button Content="Đổi mật khẩu" Command="{Binding ChangePasswordCommand}" Padding="10,6"/>
-                <Button Content="Đăng xuất" Command="{Binding LogoutCommand}" Padding="10,6"/>
-            </UniformGrid>
+            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="6,0,0,0">
+                <Button Content="Lưu" Command="{Binding ChooseOutputCommand}"
+                        ToolTip="Chọn ổ đĩa và thư mục lưu video render" Padding="7,6" MinWidth="48"/>
+                <Button Content="Video" Command="{Binding OpenLatestOutputCommand}"
+                        ToolTip="Mở video MP4 được xuất gần nhất" Padding="8,6" MinWidth="82"/>
+                <Button Content="Thư mục" Command="{Binding OpenOutputFolderCommand}"
+                        ToolTip="{Binding Settings.OutputRoot}" Padding="8,6" MinWidth="74"/>
+                <Button Content="Mật khẩu" Command="{Binding ChangePasswordCommand}" Padding="8,6" MinWidth="78"/>
+                <Button Content="Đăng xuất" Command="{Binding LogoutCommand}" Padding="8,6" MinWidth="74"/>
+            </StackPanel>
         </Grid>
 
         <!-- Cột trái: điều khiển + danh sách + chỉnh sửa. Cột phải: toàn bộ màn hình xem trước. -->
