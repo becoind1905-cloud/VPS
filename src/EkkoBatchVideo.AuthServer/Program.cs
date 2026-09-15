@@ -44,8 +44,8 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
     if (email.Length < 5 || !email.Contains('@') || request.Password.Length < 8) return Results.BadRequest(new { message = "Email hoặc mật khẩu không hợp lệ (mật khẩu tối thiểu 8 ký tự)." });
     if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
-    // Tài khoản mới được dùng thử 10 phút; quản trị viên có thể cấp thêm hạn.
-    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow.AddMinutes(10)); Save();
+    // Không tự cấp thời gian. Tài khoản chờ admin duyệt và cấp hạn.
+    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow); Save();
     return Login(email, request.Password);
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
@@ -94,7 +94,9 @@ app.MapGet("/api/admin/backup", (HttpRequest request) => {
 app.MapPost("/api/admin/users/{email}/expiry", (string email, ExpiryRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
     if (!users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.NotFound();
-    user.ExpiresAt = request.ExpiresAt ?? (DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, -3650, 3650)));
+    user.ExpiresAt = request.ExpiresAt ?? (request.Hours != 0
+        ? DateTimeOffset.UtcNow.AddHours(Math.Clamp(request.Hours, -87600, 87600))
+        : DateTimeOffset.UtcNow.AddDays(Math.Clamp(request.Days, -3650, 3650)));
     Save();
     return Results.Ok(new { user.Email, user.ExpiresAt, active = user.ExpiresAt > DateTimeOffset.UtcNow });
 });
@@ -125,7 +127,7 @@ record CheckRequest(string? Token);
 record ForgotRequest(string Email);
 record ResetRequest(string Token, string Password);
 record PasswordRequest(string Password);
-record ExpiryRequest(int Days = 0, DateTimeOffset? ExpiresAt = null);
+record ExpiryRequest(int Days = 0, double Hours = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt);
 record ResetToken(string Email, DateTimeOffset ExpiresAt);
 sealed class User(string email, string passwordHash, DateTimeOffset expiresAt) { public string Email { get; set; } = email; public string PasswordHash { get; set; } = passwordHash; public DateTimeOffset ExpiresAt { get; set; } = expiresAt; }
