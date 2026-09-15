@@ -140,6 +140,7 @@ public partial class App : Application
         MainWindow = window;
         window.ContentRendered += MainWindowOnContentRendered;
         window.Show();
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         _authTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
         _authTimer.Tick += AuthTimerOnTick;
         _authTimer.Start();
