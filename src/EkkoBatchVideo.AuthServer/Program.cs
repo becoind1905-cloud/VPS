@@ -42,7 +42,7 @@ static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(3
 
 app.MapPost("/api/auth/register", (RegisterRequest request) => {
     var email = request.Email.Trim().ToLowerInvariant();
-    if (email.Length < 5 || !email.Contains('@') || request.Password.Length < 8) return Results.BadRequest(new { message = "Email hoặc mật khẩu không hợp lệ (mật khẩu tối thiểu 8 ký tự)." });
+    if (email.Length < 3 || !email.Contains('@') || request.Password.Length < 1) return Results.BadRequest(new { message = "Email không hợp lệ hoặc mật khẩu đang để trống." });
     if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
     // Không tự cấp thời gian. Tài khoản chờ admin duyệt và cấp hạn.
     users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow); Save();
@@ -50,7 +50,7 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password));
 app.MapPost("/api/auth/change-password", (ChangePasswordRequest request) => {
-    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user) || user.PasswordHash != Hash(request.CurrentPassword) || request.NewPassword.Length < 8) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng hoặc mật khẩu mới quá ngắn." });
+    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user) || user.PasswordHash != Hash(request.CurrentPassword) || request.NewPassword.Length < 1) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng hoặc mật khẩu mới đang để trống." });
     user.PasswordHash = Hash(request.NewPassword); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
 });
 app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
@@ -66,7 +66,7 @@ app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
     return Results.Ok(new { message = sent ? "Đã gửi liên kết đặt lại mật khẩu." : "Chưa cấu hình email; hãy liên hệ quản trị viên để đặt mật khẩu tạm thời.", emailSent = sent });
 });
 app.MapPost("/api/auth/reset-password", (ResetRequest request) => {
-    if (!resetTokens.TryRemove(request.Token, out var reset) || reset.ExpiresAt <= DateTimeOffset.UtcNow || !users.TryGetValue(reset.Email, out var user) || request.Password.Length < 8) return Results.BadRequest(new { message = "Liên kết không hợp lệ hoặc đã hết hạn." });
+    if (!resetTokens.TryRemove(request.Token, out var reset) || reset.ExpiresAt <= DateTimeOffset.UtcNow || !users.TryGetValue(reset.Email, out var user) || request.Password.Length < 1) return Results.BadRequest(new { message = "Liên kết không hợp lệ hoặc mật khẩu đang để trống." });
     user.PasswordHash = Hash(request.Password); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
 });
 app.MapPost("/api/auth/check", (CheckRequest request) => {
@@ -109,7 +109,7 @@ app.MapPost("/api/admin/users/{email}/revoke", (string email, HttpRequest http) 
 });
 app.MapPost("/api/admin/users/{email}/password", (string email, PasswordRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
-    if (request.Password.Length < 8 || !users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.BadRequest(new { message = "Tài khoản không tồn tại hoặc mật khẩu quá ngắn." });
+    if (request.Password.Length < 1 || !users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.BadRequest(new { message = "Tài khoản không tồn tại hoặc mật khẩu đang để trống." });
     user.PasswordHash = Hash(request.Password); Save();
     return Results.Ok(new { message = "Đã đặt lại mật khẩu." });
 });
