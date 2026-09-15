@@ -5,7 +5,7 @@ public partial class LoginWindow : Window
 {
     private readonly AuthService _auth;
     public AuthStatus? AuthStatus { get; private set; }
-    public LoginWindow(AuthService auth) { InitializeComponent(); _auth = auth; }
+    public LoginWindow(AuthService auth) { InitializeComponent(); _auth = auth; EmailBox.Text = auth.SavedAccount; }
     private async void Login_Click(object sender, RoutedEventArgs e) => await Submit(false);
     private async void Register_Click(object sender, RoutedEventArgs e) => await Submit(true);
     private async void Forgot_Click(object sender, RoutedEventArgs e)
@@ -13,7 +13,24 @@ public partial class LoginWindow : Window
     private async Task Submit(bool register)
     {
         ErrorText.Text = "Đang kết nối máy chủ…";
-        try { AuthStatus = await _auth.LoginAsync(EmailBox.Text, PasswordBox.Password, register); if (AuthStatus is null) { ErrorText.Text = "Email hoặc mật khẩu không đúng, hoặc máy chủ không khả dụng."; return; } DialogResult = true; Close(); }
+        try
+        {
+            AuthStatus = await _auth.LoginAsync(EmailBox.Text, PasswordBox.Password, register);
+            if (AuthStatus is null)
+            {
+                ErrorText.Text = "Tài khoản hoặc mật khẩu không đúng, hoặc máy chủ không khả dụng.";
+                return;
+            }
+            if (!AuthStatus.Valid)
+            {
+                ErrorText.Text = register
+                    ? "Đăng ký thành công. Hãy chờ admin cấp thời gian sử dụng rồi bấm Đăng nhập lại."
+                    : "Tài khoản đang chờ admin cấp thời gian sử dụng.";
+                return;
+            }
+            DialogResult = true;
+            Close();
+        }
         catch (Exception ex) { ErrorText.Text = $"Không thể kết nối máy chủ: {ex.Message}"; }
     }
 }

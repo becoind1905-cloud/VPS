@@ -8,19 +8,27 @@ namespace EkkoBatchVideo.Services;
 public sealed record AuthStatus(bool Valid, string Email, DateTimeOffset ExpiresAt);
 public sealed class AuthService : IDisposable
 {
-    private readonly HttpClient _http = new();
+    // Render Free có thể cần vài giây để thức dậy. Giới hạn thời gian để
+    // ứng dụng vẫn hiện cửa sổ đăng nhập nếu máy chủ tạm thời không phản hồi.
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
     private readonly string _tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkkoBatchVideo", "auth-token");
+    private readonly string _accountFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkkoBatchVideo", "account");
     public string ServerUrl { get; } = Environment.GetEnvironmentVariable("EKKO_AUTH_SERVER") ?? "https://vps-x317.onrender.com";
     public string? Token { get; private set; }
+    public string SavedAccount { get; }
     public AuthStatus? Status { get; private set; }
-    public AuthService() { if (File.Exists(_tokenFile)) Token = File.ReadAllText(_tokenFile).Trim(); }
+    public AuthService()
+    {
+        if (File.Exists(_tokenFile)) Token = File.ReadAllText(_tokenFile).Trim();
+        SavedAccount = File.Exists(_accountFile) ? File.ReadAllText(_accountFile).Trim() : "";
+    }
     public async Task<AuthStatus?> LoginAsync(string email, string password, bool register, CancellationToken ct = default)
     {
         var path = register ? "register" : "login";
         using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/{path}", new { email, password }, ct);
         if (!response.IsSuccessStatusCode) return null;
         var data = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: ct) ?? throw new InvalidOperationException("Phản hồi xác thực không hợp lệ.");
-        Token = data.Token; Directory.CreateDirectory(Path.GetDirectoryName(_tokenFile)!); File.WriteAllText(_tokenFile, Token); Status = new(data.Valid, data.Email, data.ExpiresAt); return Status;
+        Token = data.Token; Directory.CreateDirectory(Path.GetDirectoryName(_tokenFile)!); File.WriteAllText(_tokenFile, Token); File.WriteAllText(_accountFile, email.Trim()); Status = new(data.Valid, data.Email, data.ExpiresAt); return Status;
     }
     public async Task<AuthStatus?> CheckAsync(CancellationToken ct = default)
     {
