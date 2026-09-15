@@ -144,6 +144,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ChooseOutputCommand = new RelayCommand(ChooseOutput);
         OpenLatestOutputCommand = new RelayCommand(OpenLatestOutput);
         OpenOutputFolderCommand = new RelayCommand(OpenOutputFolder);
+        LogoutCommand = new RelayCommand(Logout);
         CopySelectedLogCommand = new RelayCommand(
             CopySelectedLog,
             () => SelectedLog is not null);
@@ -1239,6 +1240,7 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
     public ICommand ChooseOutputCommand { get; }
     public ICommand OpenLatestOutputCommand { get; }
     public ICommand OpenOutputFolderCommand { get; }
+    public ICommand LogoutCommand { get; }
     public ICommand CopySelectedLogCommand { get; }
     public ICommand CopyAllErrorsCommand { get; }
     public ICommand ChooseBackgroundImageCommand { get; }
@@ -1298,6 +1300,30 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         var window = new ChangePasswordWindow(_auth) { Owner = Application.Current.MainWindow };
         window.ShowDialog();
         await Task.CompletedTask;
+    }
+
+    private void Logout()
+    {
+        if (_renderQueue.IsRunning)
+        {
+            MessageBox.Show(
+                "Đang render nên chưa thể đăng xuất. Hãy dừng hoặc đợi render xong.",
+                "Ekko Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _auth.LogoutLocal();
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(exePath))
+                Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning("Không tự mở lại màn đăng nhập: " + ex.Message);
+        }
+        Application.Current.Shutdown();
     }
 
     public async Task InitializeAsync()

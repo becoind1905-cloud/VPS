@@ -1,13 +1,34 @@
 using System.Windows;
+using System.Windows.Input;
 using EkkoBatchVideo.Services;
 namespace EkkoBatchVideo.Views;
 public partial class LoginWindow : Window
 {
     private readonly AuthService _auth;
     public AuthStatus? AuthStatus { get; private set; }
-    public LoginWindow(AuthService auth) { InitializeComponent(); _auth = auth; EmailBox.Text = auth.SavedAccount; }
+    public LoginWindow(AuthService auth)
+    {
+        InitializeComponent();
+        _auth = auth;
+        EmailBox.Text = auth.SavedAccount;
+        EmailBox.KeyDown += LoginInput_KeyDown;
+        PasswordBox.KeyDown += LoginInput_KeyDown;
+        Loaded += (_, _) =>
+        {
+            Topmost = true;
+            Activate();
+            EmailBox.Focus();
+            Topmost = false;
+        };
+    }
     private async void Login_Click(object sender, RoutedEventArgs e) => await Submit(false);
     private async void Register_Click(object sender, RoutedEventArgs e) => await Submit(true);
+    private async void LoginInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        await Submit(false);
+    }
     private async void Forgot_Click(object sender, RoutedEventArgs e)
     { if (string.IsNullOrWhiteSpace(EmailBox.Text)) { ErrorText.Text = "Nhập tài khoản trước rồi bấm Quên mật khẩu."; return; } try { var sent = await _auth.ForgotPasswordAsync(EmailBox.Text); ErrorText.Text = sent ? "Đã gửi liên kết đặt lại mật khẩu." : "Chưa cấu hình email; hãy liên hệ quản trị viên để đặt mật khẩu tạm thời."; } catch (Exception ex) { ErrorText.Text = ex.Message; } }
     private async Task Submit(bool register)

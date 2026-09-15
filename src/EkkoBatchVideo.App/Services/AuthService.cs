@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Net.Http;
 using System.Text.Json;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace EkkoBatchVideo.Services;
 
@@ -14,6 +15,7 @@ public sealed class AuthService : IDisposable
     private readonly string _tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkkoBatchVideo", "auth-token");
     private readonly string _accountFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkkoBatchVideo", "account");
     public string ServerUrl { get; } = Environment.GetEnvironmentVariable("EKKO_AUTH_SERVER") ?? "https://vps-x317.onrender.com";
+    public string DeviceId { get; } = BuildDeviceId();
     public string? Token { get; private set; }
     public string SavedAccount { get; }
     public AuthStatus? Status { get; private set; }
@@ -25,7 +27,7 @@ public sealed class AuthService : IDisposable
     public async Task<AuthStatus?> LoginAsync(string email, string password, bool register, CancellationToken ct = default)
     {
         var path = register ? "register" : "login";
-        using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/{path}", new { email, password }, ct);
+        using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/{path}", new { email, password, deviceId = DeviceId }, ct);
         if (!response.IsSuccessStatusCode) return null;
         var data = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: ct) ?? throw new InvalidOperationException("Phản hồi xác thực không hợp lệ.");
         Token = data.Token; Directory.CreateDirectory(Path.GetDirectoryName(_tokenFile)!); File.WriteAllText(_tokenFile, Token); File.WriteAllText(_accountFile, email.Trim()); Status = new(data.Valid, data.Email, data.ExpiresAt); return Status;
@@ -33,13 +35,24 @@ public sealed class AuthService : IDisposable
     public async Task<AuthStatus?> CheckAsync(CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(Token)) return null;
-        try { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/check", new { token = Token }, ct); if (!response.IsSuccessStatusCode) return null; var d = await response.Content.ReadFromJsonAsync<CheckResponse>(cancellationToken: ct); return d is null ? null : Status = new(d.Valid, d.Email, d.ExpiresAt); } catch { return null; }
+        try { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/check", new { token = Token, deviceId = DeviceId }, ct); if (!response.IsSuccessStatusCode) return null; var d = await response.Content.ReadFromJsonAsync<CheckResponse>(cancellationToken: ct); return d is null ? null : Status = new(d.Valid, d.Email, d.ExpiresAt); } catch { return null; }
     }
     public async Task<bool> ForgotPasswordAsync(string email, CancellationToken ct = default)
     { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/forgot-password", new { email }, ct); if (!response.IsSuccessStatusCode) return false; var result = await response.Content.ReadFromJsonAsync<ForgotResponse>(cancellationToken: ct); return result?.EmailSent == true; }
     public async Task<bool> ChangePasswordAsync(string currentPassword, string newPassword, CancellationToken ct = default)
     { using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/change-password", new { token = Token, currentPassword, newPassword }, ct); return response.IsSuccessStatusCode; }
+    public void LogoutLocal()
+    {
+        Token = null;
+        Status = null;
+        try { if (File.Exists(_tokenFile)) File.Delete(_tokenFile); } catch { }
+    }
     public void Dispose() => _http.Dispose();
+    private static string BuildDeviceId()
+    {
+        var raw = $"{Environment.MachineName}|{Environment.UserName}|{Environment.OSVersion.VersionString}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+    }
     private sealed record AuthResponse(string Token, bool Valid, string Email, DateTimeOffset ExpiresAt);
     private sealed record CheckResponse(bool Valid, string Email, DateTimeOffset ExpiresAt);
     private sealed record ForgotResponse(string Message, bool EmailSent);
