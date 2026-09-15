@@ -107,6 +107,23 @@ app.MapPost("/api/admin/users/{email}/revoke", (string email, HttpRequest http) 
     foreach (var pair in tokens.Where(p => p.Value.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))) tokens.TryRemove(pair.Key, out _);
     return Results.Ok(new { user.Email, user.ExpiresAt, active = false });
 });
+app.MapDelete("/api/admin/users/{email}", (string email, HttpRequest http) => {
+    if (!IsAdmin(http)) return Results.Unauthorized();
+    var normalized = email.Trim().ToLowerInvariant();
+    if (!users.TryRemove(normalized, out var removed)) return Results.NotFound();
+    foreach (var pair in tokens.Where(p => p.Value.Email.Equals(removed.Email, StringComparison.OrdinalIgnoreCase)))
+        tokens.TryRemove(pair.Key, out _);
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl));
+        connection.Open();
+        using var command = new NpgsqlCommand("DELETE FROM accounts WHERE email=$1", connection);
+        command.Parameters.AddWithValue(normalized);
+        command.ExecuteNonQuery();
+    }
+    else Save();
+    return Results.Ok(new { removed = removed.Email });
+});
 app.MapPost("/api/admin/users/{email}/password", (string email, PasswordRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
     if (request.Password.Length < 1 || !users.TryGetValue(email.Trim().ToLowerInvariant(), out var user)) return Results.BadRequest(new { message = "Tài khoản không tồn tại hoặc mật khẩu đang để trống." });
