@@ -33,7 +33,19 @@ public partial class App : Application
             args.SetObserved();
         };
         _auth = new AuthService();
-        var authStatus = _auth.CheckAsync().GetAwaiter().GetResult();
+        // Không để Render đang ngủ giữ luồng giao diện quá lâu trước khi
+        // hiện cửa sổ đăng nhập. Nếu kiểm tra token không kịp trong 5 giây,
+        // cho người dùng đăng nhập lại bình thường.
+        AuthStatus? authStatus;
+        if (string.IsNullOrWhiteSpace(_auth.Token))
+        {
+            authStatus = null;
+        }
+        else
+        {
+            using var startupCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            authStatus = _auth.CheckAsync(startupCts.Token).GetAwaiter().GetResult();
+        }
         if (authStatus is null)
         {
             var login = new LoginWindow(_auth);
@@ -111,7 +123,20 @@ public partial class App : Application
             preview, watchFolder, projectService, presetService, recycleBin, diskSpace,
             smartTrim, watermarks, dialogs, logger, _auth);
 
-        var window = new MainWindow { DataContext = _viewModel };
+        MainWindow window;
+        try
+        {
+            window = new MainWindow { DataContext = _viewModel };
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("Không mở được cửa sổ chính", ex);
+            MessageBox.Show(
+                $"Không thể mở giao diện Ekko Tools.\n\n{ex.Message}\n\nChi tiết đã lưu trong Logs.",
+                "Ekko Tools", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
+            return;
+        }
         MainWindow = window;
         window.ContentRendered += MainWindowOnContentRendered;
         window.Show();
