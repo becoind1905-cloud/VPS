@@ -39,7 +39,9 @@ public partial class LoginWindow : Window
             AuthStatus = await _auth.LoginAsync(EmailBox.Text, PasswordBox.Password, register);
             if (AuthStatus is null)
             {
-                ErrorText.Text = "Tài khoản hoặc mật khẩu không đúng, hoặc máy chủ không khả dụng.";
+                ErrorText.Text = string.IsNullOrWhiteSpace(_auth.LastError)
+                    ? "Tài khoản hoặc mật khẩu không đúng, hoặc máy chủ không khả dụng."
+                    : _auth.LastError;
                 return;
             }
             if (!AuthStatus.Valid)

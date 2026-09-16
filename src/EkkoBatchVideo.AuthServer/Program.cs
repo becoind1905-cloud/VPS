@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Npgsql;
@@ -52,7 +54,7 @@ app.MapPost("/api/auth/register", (RegisterRequest request) => {
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password, request.DeviceId));
 app.MapPost("/api/auth/change-password", (ChangePasswordRequest request) => {
-    if (!tokens.TryGetValue(request.Token ?? "", out var session) || !users.TryGetValue(session.Email, out var user) || user.PasswordHash != Hash(request.CurrentPassword) || request.NewPassword.Length < 1) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng hoặc mật khẩu mới đang để trống." });
+    if (!TryResolveSession(request.Token, out var session) || !users.TryGetValue(session.Email, out var user) || user.PasswordHash != Hash(request.CurrentPassword) || request.NewPassword.Length < 1) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng hoặc mật khẩu mới đang để trống." });
     user.PasswordHash = Hash(request.NewPassword); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
 });
 app.MapPost("/api/auth/forgot-password", async (ForgotRequest request) => {
@@ -72,15 +74,15 @@ app.MapPost("/api/auth/reset-password", (ResetRequest request) => {
     user.PasswordHash = Hash(request.Password); Save(); return Results.Ok(new { message = "Đã đổi mật khẩu." });
 });
 app.MapPost("/api/auth/check", (CheckRequest request) => {
-    if (!tokens.TryGetValue(request.Token ?? "", out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow) return Results.Unauthorized();
+    if (!TryResolveSession(request.Token, out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow) return Results.Unauthorized();
     if (!users.TryGetValue(session.Email, out var user)) return Results.Unauthorized();
-    if (!DeviceMatches(user, session.DeviceId) || !DeviceMatches(user, request.DeviceId)) return Results.Unauthorized();
+    if (!DeviceMatches(user, session.DeviceId) || !DeviceMatches(user, request.DeviceId)) return Results.Json(new { message = "Tài khoản này đang gắn với máy khác." }, statusCode: StatusCodes.Status403Forbidden);
     return Results.Ok(new { valid = user.ExpiresAt > DateTimeOffset.UtcNow, email = user.Email, expiresAt = user.ExpiresAt });
 });
 // Các API nghiệp vụ có thể dùng cùng quy tắc này: token hợp lệ và tài khoản còn hạn.
 app.MapGet("/api/protected/ping", (HttpRequest request) => {
     var token = request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase);
-    if (!tokens.TryGetValue(token, out var session) || !users.TryGetValue(session.Email, out var user) || user.ExpiresAt <= DateTimeOffset.UtcNow)
+    if (!TryResolveSession(token, out var session) || !users.TryGetValue(session.Email, out var user) || user.ExpiresAt <= DateTimeOffset.UtcNow)
         return Results.Json(new { message = "Tài khoản hết hạn hoặc token không hợp lệ." }, statusCode: StatusCodes.Status403Forbidden);
     return Results.Ok(new { authorized = true, email = user.Email, expiresAt = user.ExpiresAt });
 });
@@ -166,8 +168,46 @@ IResult Login(string email, string password, string? deviceId) {
     if (!string.IsNullOrWhiteSpace(user.DeviceId) && user.DeviceId != normalizedDevice) return Results.Json(new { message = "Tài khoản này đã được đăng nhập trên máy khác. Hãy liên hệ admin để reset máy." }, statusCode: StatusCodes.Status403Forbidden);
     if (string.IsNullOrWhiteSpace(user.DeviceId)) { user.DeviceId = normalizedDevice; Save(); }
     foreach (var pair in tokens.Where(p => p.Value.Email.Equals(email, StringComparison.OrdinalIgnoreCase))) tokens.TryRemove(pair.Key, out _);
-    var token = NewToken(); tokens[token] = new Session(email, DateTimeOffset.UtcNow.AddDays(30), normalizedDevice);
+    var expiresAt = DateTimeOffset.UtcNow.AddDays(30);
+    var token = CreateSignedToken(user, normalizedDevice, expiresAt);
+    tokens[token] = new Session(email, expiresAt, normalizedDevice);
     return Results.Ok(new { token, valid = user.ExpiresAt > DateTimeOffset.UtcNow, email, expiresAt = user.ExpiresAt });
+}
+bool TryResolveSession(string? token, out Session session) {
+    session = new Session("", DateTimeOffset.MinValue, null);
+    if (string.IsNullOrWhiteSpace(token)) return false;
+    if (tokens.TryGetValue(token, out var legacy)) { session = legacy; return true; }
+    if (!token.StartsWith("v2.", StringComparison.Ordinal)) return false;
+    var parts = token.Split('.', 3);
+    if (parts.Length != 3) return false;
+    SignedTokenPayload payload;
+    try {
+        var json = Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
+        payload = JsonSerializer.Deserialize<SignedTokenPayload>(json) ?? new("", "", 0);
+    } catch { return false; }
+    if (!users.TryGetValue(payload.Email, out var user)) return false;
+    var expected = SignTokenPayload(parts[1], user);
+    if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(expected), Encoding.ASCII.GetBytes(parts[2]))) return false;
+    var expiresAt = DateTimeOffset.FromUnixTimeSeconds(payload.ExpiresUnix);
+    if (expiresAt <= DateTimeOffset.UtcNow) return false;
+    session = new Session(payload.Email, expiresAt, payload.DeviceId);
+    return true;
+}
+string CreateSignedToken(User user, string deviceId, DateTimeOffset expiresAt) {
+    var payload = new SignedTokenPayload(user.Email, deviceId, expiresAt.ToUnixTimeSeconds());
+    var payloadJson = JsonSerializer.Serialize(payload);
+    var payloadText = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
+    return $"v2.{payloadText}.{SignTokenPayload(payloadText, user)}";
+}
+string SignTokenPayload(string payloadText, User user) {
+    var key = Encoding.UTF8.GetBytes($"{adminKey}|{user.PasswordHash}");
+    return Base64UrlEncode(HMACSHA256.HashData(key, Encoding.ASCII.GetBytes(payloadText)));
+}
+static string Base64UrlEncode(byte[] value) => Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+static byte[] Base64UrlDecode(string value) {
+    var base64 = value.Replace('-', '+').Replace('_', '/');
+    base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
+    return Convert.FromBase64String(base64);
 }
 record RegisterRequest(string Email, string Password, string? DeviceId = null);
 record LoginRequest(string Email, string Password, string? DeviceId = null);
@@ -179,5 +219,6 @@ record PasswordRequest(string Password);
 record AdminCreateUserRequest(string Email, string Password, int Days = 0, double Hours = 0, DateTimeOffset? ExpiresAt = null);
 record ExpiryRequest(int Days = 0, double Hours = 0, DateTimeOffset? ExpiresAt = null);
 record Session(string Email, DateTimeOffset ExpiresAt, string? DeviceId);
+record SignedTokenPayload(string Email, string DeviceId, long ExpiresUnix);
 record ResetToken(string Email, DateTimeOffset ExpiresAt);
 sealed class User(string email, string passwordHash, DateTimeOffset expiresAt, string? deviceId = null) { public string Email { get; set; } = email; public string PasswordHash { get; set; } = passwordHash; public DateTimeOffset ExpiresAt { get; set; } = expiresAt; public string? DeviceId { get; set; } = deviceId; }

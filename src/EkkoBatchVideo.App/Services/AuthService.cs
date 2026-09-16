@@ -19,6 +19,7 @@ public sealed class AuthService : IDisposable
     public string? Token { get; private set; }
     public string SavedAccount { get; }
     public AuthStatus? Status { get; private set; }
+    public string LastError { get; private set; } = "";
     public AuthService()
     {
         if (File.Exists(_tokenFile)) Token = File.ReadAllText(_tokenFile).Trim();
@@ -26,9 +27,14 @@ public sealed class AuthService : IDisposable
     }
     public async Task<AuthStatus?> LoginAsync(string email, string password, bool register, CancellationToken ct = default)
     {
+        LastError = "";
         var path = register ? "register" : "login";
         using var response = await _http.PostAsJsonAsync($"{ServerUrl}/api/auth/{path}", new { email, password, deviceId = DeviceId }, ct);
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode)
+        {
+            LastError = await ReadErrorAsync(response, ct);
+            return null;
+        }
         var data = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: ct) ?? throw new InvalidOperationException("Phản hồi xác thực không hợp lệ.");
         Token = data.Token; Directory.CreateDirectory(Path.GetDirectoryName(_tokenFile)!); File.WriteAllText(_tokenFile, Token); File.WriteAllText(_accountFile, email.Trim()); Status = new(data.Valid, data.Email, data.ExpiresAt); return Status;
     }
@@ -53,7 +59,25 @@ public sealed class AuthService : IDisposable
         var raw = $"{Environment.MachineName}|{Environment.UserName}|{Environment.OSVersion.VersionString}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
     }
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(cancellationToken: ct);
+            if (!string.IsNullOrWhiteSpace(error?.Message)) return error.Message;
+        }
+        catch { }
+
+        return response.StatusCode switch
+        {
+            System.Net.HttpStatusCode.Unauthorized => "Tài khoản hoặc mật khẩu không đúng.",
+            System.Net.HttpStatusCode.Conflict => "Tài khoản đã tồn tại.",
+            System.Net.HttpStatusCode.Forbidden => "Tài khoản chưa được phép đăng nhập trên máy này.",
+            _ => "Máy chủ từ chối đăng nhập."
+        };
+    }
     private sealed record AuthResponse(string Token, bool Valid, string Email, DateTimeOffset ExpiresAt);
     private sealed record CheckResponse(bool Valid, string Email, DateTimeOffset ExpiresAt);
     private sealed record ForgotResponse(string Message, bool EmailSent);
+    private sealed record ErrorResponse(string Message);
 }
