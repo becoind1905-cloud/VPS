@@ -201,7 +201,8 @@ public partial class App : Application
     {
         if (_auth is null || MainWindow is null) return;
         var status = await _auth.CheckAsync();
-        if (status?.Valid == true) return;
+        if (status is null) return;
+        if (status.Valid) return;
         _authTimer?.Stop();
         MainWindow.IsEnabled = false;
         var renewal = new RenewalWindow(_auth) { Owner = MainWindow };

@@ -1463,9 +1463,14 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         var roots = Settings.InputFolders
             .Append(Settings.InputFolder)
             .Where(Directory.Exists)
+            .Concat(Jobs.Select(job => job.InputPath))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => TryGetFullPath(path))
+            .Where(path => path is not null)
+            .Select(path => path!)
+            .Where(path => !IsUnsafeListScanRoot(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        roots.AddRange(Jobs.Select(job => job.InputPath));
 
         IsBusy = true;
         StatusText = "Đang quét nhanh tên file trong thư mục…";
@@ -2768,6 +2773,35 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         }
     }
 
+
+    private static bool IsUnsafeListScanRoot(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path)) return false;
+
+            var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            var driveRoot = Path.TrimEndingDirectorySeparator(Path.GetPathRoot(full) ?? "");
+            if (string.Equals(full, driveRoot, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var appFolder = TryGetFullPath(AppContext.BaseDirectory);
+            if (!string.IsNullOrWhiteSpace(appFolder))
+            {
+                appFolder = Path.TrimEndingDirectorySeparator(appFolder);
+                if (string.Equals(full, appFolder, StringComparison.OrdinalIgnoreCase) ||
+                    IsPathInsideDirectory(appFolder, full))
+                    return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
     private static bool IsPathInsideDirectory(string path, string directory)
     {
         try
@@ -3741,8 +3775,17 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
     {
         Jobs.Clear();
         SelectedJob = null;
+        SelectedPart = null;
         PreviewUri = null;
         PreviewOverlayUri = null;
+        Settings.InputFolder = "";
+        Settings.InputFolders = [];
+        _pendingWatchedPaths.Clear();
+        _watchFolder.Stop();
+        CurrentFolderName = "Chưa chọn thư mục";
+        StatusText = "Đã xóa danh sách và bỏ thư mục nguồn cũ.";
+        _cachedMergePlans = null;
+        CancelMergePlanBuild();
         InvalidateQueueSummary();
         RaiseCommands();
         _ = AutoSaveAsync();
