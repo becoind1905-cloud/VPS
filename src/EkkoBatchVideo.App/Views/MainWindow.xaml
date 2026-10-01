@@ -378,6 +378,19 @@
                                         </Grid>
                                     </GroupBox>
 
+                                    <GroupBox Header="Cắt đầu / cuối video">
+                                        <StackPanel>
+                                            <CheckBox Content="Cắt 1 giây đầu và 1 giây cuối khi render thường"
+                                                      IsChecked="{Binding Settings.TrimOneSecondEdgesEnabled}"
+                                                      FontWeight="SemiBold"/>
+                                            <TextBlock Text="Áp dụng cho render/edit thường và ghép thường. Không áp dụng cho xào siêu nhanh stream-copy. Clip quá ngắn sẽ được giữ nguyên."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="10"
+                                                       Margin="24,2,4,0"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
                                     <Expander Header="HIỆU ỨNG VIDEO — rung, lệch, màu và nhiễu"
                                               IsExpanded="False" Margin="2">
                                         <Border Style="{StaticResource SubCard}" Margin="0,4,0,2">

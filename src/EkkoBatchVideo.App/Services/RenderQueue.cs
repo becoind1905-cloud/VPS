@@ -1268,7 +1268,7 @@ public sealed class RenderQueue(
             });
         });
 
-        var renderPlan = streamCopy ? plan : CreateNormalEditPlan(plan);
+        var renderPlan = streamCopy ? plan : CreateNormalEditPlan(plan, settings);
         RenderResult result;
         IReadOnlyList<string?>? subtitlePaths = null;
         string? mergedSrtPath = null;
@@ -1595,7 +1595,7 @@ public sealed class RenderQueue(
                 settings,
                 "Đang render",
                 token);
-        var renderPart = CreateNormalEditPart(item.Part);
+        var renderPart = CreateNormalEditPart(item.Part, settings);
         string? subtitlePath = null;
         string? sidecarPath = null;
         string? overlay = null;
@@ -1834,11 +1834,13 @@ public sealed class RenderQueue(
             token);
 
 
-    private static PartPlan CreateNormalEditPart(PartPlan source)
+    private static PartPlan CreateNormalEditPart(
+        PartPlan source,
+        PresetSettings settings)
     {
-        var (start, duration) = TrimOneSecondFromEdges(
-            source.StartSeconds,
-            source.DurationSeconds);
+        var (start, duration) = settings.TrimOneSecondEdgesEnabled
+            ? TrimOneSecondFromEdges(source.StartSeconds, source.DurationSeconds)
+            : (source.StartSeconds, source.DurationSeconds);
         return new PartPlan
         {
             Index = source.Index,
@@ -1852,14 +1854,16 @@ public sealed class RenderQueue(
         };
     }
 
-    private static MergeOutputPlan CreateNormalEditPlan(MergeOutputPlan source)
+    private static MergeOutputPlan CreateNormalEditPlan(
+        MergeOutputPlan source,
+        PresetSettings settings)
     {
         var segments = source.Segments
             .Select(segment =>
             {
-                var (start, duration) = TrimOneSecondFromEdges(
-                    segment.StartSeconds,
-                    segment.DurationSeconds);
+                var (start, duration) = settings.TrimOneSecondEdgesEnabled
+                    ? TrimOneSecondFromEdges(segment.StartSeconds, segment.DurationSeconds)
+                    : (segment.StartSeconds, segment.DurationSeconds);
                 return new MergeSegment(segment.Job, start, duration);
             })
             .ToArray();
