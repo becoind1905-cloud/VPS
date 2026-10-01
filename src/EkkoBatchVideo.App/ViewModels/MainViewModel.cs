@@ -4439,7 +4439,6 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         var previous = _settingsAutoSaveSource;
         _settingsAutoSaveSource = source;
         previous?.Cancel();
-        previous?.Dispose();
         _ = SaveSettingsAfterDelayAsync(source);
     }
 

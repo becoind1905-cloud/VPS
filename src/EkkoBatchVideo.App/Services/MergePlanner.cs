@@ -343,17 +343,20 @@ public sealed class MergePlanner
             return shuffled;
         }
 
-        return members
-            .OrderBy(job => mergeOrder switch
-            {
-                MergeOrderMode.ShortestFirst => OutputDuration(job, videoSpeed),
-                _ => inputOrder.GetValueOrDefault(job.Id, int.MaxValue)
-            })
-            .ThenBy(job => mergeOrder == MergeOrderMode.FileName
-                ? job.FileName
-                : "", StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(job => job.Id == anchor.Id ? 0 : 1)
-            .ToArray();
+        return mergeOrder switch
+        {
+            MergeOrderMode.ShortestFirst => members
+                .OrderBy(job => OutputDuration(job, videoSpeed))
+                .ThenBy(job => inputOrder.GetValueOrDefault(job.Id, int.MaxValue))
+                .ToArray(),
+            MergeOrderMode.FileName => members
+                .OrderBy(job => job.FileName, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(job => inputOrder.GetValueOrDefault(job.Id, int.MaxValue))
+                .ToArray(),
+            _ => members
+                .OrderBy(job => inputOrder.GetValueOrDefault(job.Id, int.MaxValue))
+                .ToArray()
+        };
     }
 
     private static IReadOnlyList<MergeOutputPlan> BuildAnchoredAutoShuffleFirstCycle(
