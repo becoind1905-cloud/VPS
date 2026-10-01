@@ -67,6 +67,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private IReadOnlyList<MergeOutputPlan>? _cachedMergePlans;
     private CancellationTokenSource? _mergePlanBuildSource;
     private CancellationTokenSource? _sourceDeletionSaveSource;
+    private CancellationTokenSource? _settingsAutoSaveSource;
     private CancellationTokenSource? _metadataAnalysisSource;
     private RenderQueueProgress? _currentQueueProgress;
     private DateTimeOffset? _queueProgressStartedAt;
@@ -3875,6 +3876,7 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         if (e.PropertyName == nameof(PresetSettings.WorkerCount) &&
             _renderQueue.IsRunning)
             _renderQueue.UpdateWorkerCount(Settings.WorkerCount);
+        ScheduleSettingsAutoSave();
         if (e.PropertyName == nameof(PresetSettings.Layout) &&
             Settings.Layout == LayoutKind.Custom)
         {
@@ -4430,6 +4432,40 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
         else Application.Current.Dispatcher.BeginInvoke(Update);
     }
 
+    private void ScheduleSettingsAutoSave()
+    {
+        if (_lifetime.IsCancellationRequested) return;
+        var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var previous = _settingsAutoSaveSource;
+        _settingsAutoSaveSource = source;
+        previous?.Cancel();
+        previous?.Dispose();
+        _ = SaveSettingsAfterDelayAsync(source);
+    }
+
+    private async Task SaveSettingsAfterDelayAsync(CancellationTokenSource source)
+    {
+        try
+        {
+            await Task.Delay(900, source.Token);
+            await _projects.SaveAutoAsync(Snapshot(), source.Token);
+        }
+        catch (OperationCanceledException) when (source.IsCancellationRequested)
+        {
+            // Người dùng tiếp tục chỉnh setting hoặc app đang đóng.
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning($"Tự lưu cài đặt: {ex.Message}");
+        }
+        finally
+        {
+            if (ReferenceEquals(_settingsAutoSaveSource, source))
+                _settingsAutoSaveSource = null;
+            source.Dispose();
+        }
+    }
+
     private void ScheduleSourceDeletionSave()
     {
         var source = CancellationTokenSource.CreateLinkedTokenSource(
@@ -4638,6 +4674,7 @@ public string ExistingSubtitleBlurButtonText => IsExistingSubtitleBlurEditMode
     {
         CancelMergePlanBuild();
         _sourceDeletionSaveSource?.Cancel();
+        _settingsAutoSaveSource?.Cancel();
         _metadataAnalysisSource?.Cancel();
         _lifetime.Cancel();
         _renderQueue.StateChanged -= QueueOnStateChanged;
