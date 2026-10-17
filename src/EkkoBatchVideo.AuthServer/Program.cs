@@ -13,7 +13,12 @@ app.UseStaticFiles();
 var users = new ConcurrentDictionary<string, User>(StringComparer.OrdinalIgnoreCase);
 var tokens = new ConcurrentDictionary<string, Session>();
 var resetTokens = new ConcurrentDictionary<string, ResetToken>();
-var database = Path.Combine(AppContext.BaseDirectory, "accounts.json");
+var dataDirectory = Environment.GetEnvironmentVariable("EKKO_DATA_DIR") ?? AppContext.BaseDirectory;
+Directory.CreateDirectory(dataDirectory);
+var database = Path.Combine(dataDirectory, "accounts.json");
+var trialDatabase = Path.Combine(dataDirectory, "device-trials.json");
+var trialClaims = new ConcurrentDictionary<string, TrialClaim>(StringComparer.Ordinal);
+var registrationGate = new object();
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var adminKey = Environment.GetEnvironmentVariable("EKKO_ADMIN_KEY") ?? "change-this-admin-key";
 if (!string.IsNullOrWhiteSpace(databaseUrl))
@@ -31,6 +36,88 @@ if (!string.IsNullOrWhiteSpace(databaseUrl))
 else if (File.Exists(database))
     foreach (var user in System.Text.Json.JsonSerializer.Deserialize<List<User>>(File.ReadAllText(database)) ?? []) users[user.Email] = user;
 
+
+// Keep device claims independently from accounts: deleting/resetting an account never resets its trial.
+if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
+    using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl));
+    connection.Open();
+    using (var create = new NpgsqlCommand("CREATE TABLE IF NOT EXISTS device_trial_claims (device_key text PRIMARY KEY, account_name text NOT NULL, claimed_at timestamptz NOT NULL)", connection))
+        create.ExecuteNonQuery();
+    foreach (var user in users.Values.Where(u => !string.IsNullOrWhiteSpace(u.DeviceId)))
+    {
+        using var seed = new NpgsqlCommand("INSERT INTO device_trial_claims(device_key,account_name,claimed_at) VALUES($1,$2,$3) ON CONFLICT(device_key) DO NOTHING", connection);
+        seed.Parameters.AddWithValue(DeviceClaimKey("login", user.DeviceId!));
+        seed.Parameters.AddWithValue(user.Email);
+        seed.Parameters.AddWithValue(DateTimeOffset.UtcNow);
+        seed.ExecuteNonQuery();
+    }
+    using var select = new NpgsqlCommand("SELECT device_key,account_name,claimed_at FROM device_trial_claims", connection);
+    using var reader = select.ExecuteReader();
+    while (reader.Read()) trialClaims[reader.GetString(0)] = new TrialClaim(reader.GetString(0), reader.GetString(1), reader.GetFieldValue<DateTimeOffset>(2));
+}
+else
+{
+    if (File.Exists(trialDatabase))
+        foreach (var claim in JsonSerializer.Deserialize<List<TrialClaim>>(File.ReadAllText(trialDatabase)) ?? [])
+            trialClaims[claim.DeviceKey] = claim;
+    foreach (var user in users.Values.Where(u => !string.IsNullOrWhiteSpace(u.DeviceId)))
+    {
+        var key = DeviceClaimKey("login", user.DeviceId!);
+        trialClaims.TryAdd(key, new TrialClaim(key, user.Email, DateTimeOffset.UtcNow));
+    }
+    SaveTrialClaims();
+}
+
+static string DeviceClaimKey(string kind, string id) =>
+    Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kind + ":" + id.Trim().ToUpperInvariant())));
+void SaveTrialClaims()
+{
+    var temporary = trialDatabase + ".tmp";
+    File.WriteAllText(temporary, JsonSerializer.Serialize(trialClaims.Values));
+    File.Move(temporary, trialDatabase, true);
+}
+bool CreateTrialAccount(User user, string trialDeviceId, string deviceId)
+{
+    var now = DateTimeOffset.UtcNow;
+    var claims = new[] { DeviceClaimKey("machine", trialDeviceId), DeviceClaimKey("login", deviceId) }
+        .Select(key => new TrialClaim(key, user.Email, now)).ToArray();
+    if (claims.Any(c => trialClaims.ContainsKey(c.DeviceKey))) return false;
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl));
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        foreach (var claim in claims)
+        {
+            using var reserve = new NpgsqlCommand("INSERT INTO device_trial_claims(device_key,account_name,claimed_at) VALUES($1,$2,$3) ON CONFLICT(device_key) DO NOTHING", connection, transaction);
+            reserve.Parameters.AddWithValue(claim.DeviceKey);
+            reserve.Parameters.AddWithValue(claim.AccountName);
+            reserve.Parameters.AddWithValue(claim.ClaimedAt);
+            // Unique index also prevents simultaneous requests on different server instances.
+            if (reserve.ExecuteNonQuery() != 1) { transaction.Rollback(); return false; }
+        }
+        using var account = new NpgsqlCommand("INSERT INTO accounts(email,password_hash,expires_at,device_id) VALUES($1,$2,$3,$4)", connection, transaction);
+        account.Parameters.AddWithValue(user.Email);
+        account.Parameters.AddWithValue(user.PasswordHash);
+        account.Parameters.AddWithValue(user.ExpiresAt);
+        account.Parameters.AddWithValue(user.DeviceId!);
+        account.ExecuteNonQuery();
+        transaction.Commit();
+        users[user.Email] = user;
+        foreach (var claim in claims) trialClaims[claim.DeviceKey] = claim;
+    }
+    else
+    {
+        foreach (var claim in claims) trialClaims[claim.DeviceKey] = claim;
+        // Persist claims first; a crash must never grant another free trial.
+        SaveTrialClaims();
+        users[user.Email] = user;
+        Save();
+    }
+    return true;
+}
+
 void Save() {
     if (string.IsNullOrWhiteSpace(databaseUrl)) { File.WriteAllText(database, System.Text.Json.JsonSerializer.Serialize(users.Values)); return; }
     using var connection = new NpgsqlConnection(NormalizeConnectionString(databaseUrl)); connection.Open();
@@ -44,13 +131,39 @@ static string NormalizeConnectionString(string value) {
 static string Hash(string value) => Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(value, "EkkoAuth"u8.ToArray(), 120_000, HashAlgorithmName.SHA256, 32));
 static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
+app.MapGet("/api/health", () => Results.Ok(new {
+    status = "ok",
+    version = typeof(User).Assembly.GetName().Version?.ToString(),
+    registrationTrialMinutes = 60
+}));
+
 app.MapPost("/api/auth/register", (RegisterRequest request) => {
-    var email = request.Email.Trim().ToLowerInvariant();
-    if (email.Length < 1 || request.Password.Length < 1) return Results.BadRequest(new { message = "Tài khoản hoặc mật khẩu đang để trống." });
-    if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
-    // Không tự cấp thời gian. Tài khoản chờ admin duyệt và cấp hạn.
-    users[email] = new User(email, Hash(request.Password), DateTimeOffset.UtcNow, NormalizeDevice(request.DeviceId)); Save();
-    return Login(email, request.Password, request.DeviceId);
+    var email = request.Email?.Trim().ToLowerInvariant() ?? "";
+    if (email.Length < 1 || string.IsNullOrEmpty(request.Password)) return Results.BadRequest(new { message = "Tài khoản hoặc mật khẩu đang để trống." });
+    var device = NormalizeDevice(request.DeviceId);
+    var trialDevice = NormalizeDevice(request.TrialDeviceId);
+    if (device is null || device.Length > 256 || trialDevice is null || trialDevice.Length != 64 || !trialDevice.All(Uri.IsHexDigit))
+        return Results.BadRequest(new { message = "Không nhận diện được máy để cấp dùng thử. Hãy cập nhật Ekko Tools lên bản mới." });
+    lock (registrationGate)
+    {
+        if (users.ContainsKey(email)) return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
+        var user = new User(email, Hash(request.Password), DateTimeOffset.UtcNow.AddHours(1), device);
+        try
+        {
+            if (!CreateTrialAccount(user, trialDevice, device))
+                return Results.Json(new { message = "Máy này đã đăng ký tài khoản hoặc nhận dùng thử rồi. Hãy đăng nhập tài khoản cũ hoặc liên hệ admin để gia hạn." }, statusCode: StatusCodes.Status403Forbidden);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            return Results.Conflict(new { message = "Tài khoản đã tồn tại." });
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Could not persist trial registration.");
+            return Results.Json(new { message = "Chưa lưu được đăng ký. Vui lòng thử lại sau." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+        return Login(email, request.Password, device);
+    }
 });
 app.MapPost("/api/auth/login", (LoginRequest request) => Login(request.Email.Trim().ToLowerInvariant(), request.Password, request.DeviceId));
 app.MapPost("/api/auth/change-password", (ChangePasswordRequest request) => {
@@ -95,6 +208,10 @@ app.MapGet("/api/admin/backup", (HttpRequest request) => {
     if (!IsAdmin(request)) return Results.Unauthorized();
     var json = System.Text.Json.JsonSerializer.Serialize(users.Values.OrderBy(u => u.Email));
     return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", $"ekko-accounts-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
+});
+app.MapGet("/api/admin/backup-device-trials", (HttpRequest request) => {
+    if (!IsAdmin(request)) return Results.Unauthorized();
+    return Results.File(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(trialClaims.Values)), "application/json", $"ekko-device-trials-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
 });
 app.MapPost("/api/admin/users", (AdminCreateUserRequest request, HttpRequest http) => {
     if (!IsAdmin(http)) return Results.Unauthorized();
@@ -209,7 +326,8 @@ static byte[] Base64UrlDecode(string value) {
     base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
     return Convert.FromBase64String(base64);
 }
-record RegisterRequest(string Email, string Password, string? DeviceId = null);
+record RegisterRequest(string Email, string Password, string? DeviceId = null, string? TrialDeviceId = null);
+record TrialClaim(string DeviceKey, string AccountName, DateTimeOffset ClaimedAt);
 record LoginRequest(string Email, string Password, string? DeviceId = null);
 record ChangePasswordRequest(string? Token, string CurrentPassword, string NewPassword);
 record CheckRequest(string? Token, string? DeviceId = null);
